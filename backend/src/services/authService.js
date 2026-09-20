@@ -113,7 +113,7 @@ export async function getUserFromToken(token) {
   if (!token) return null;
   const db = requireDatabase();
   const result = await db.query(
-    `SELECT u.id,u.email,u.first_name,u.last_name,u.username,u.email_verified
+    `SELECT u.id,u.email,u.first_name,u.last_name,u.username,u.email_verified,u.role
      FROM sessions s JOIN users u ON u.id=s.user_id
      WHERE s.token_hash=$1 AND s.revoked_at IS NULL AND s.expires_at > NOW() LIMIT 1`,
     [hashToken(token)]
