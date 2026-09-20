@@ -5,6 +5,7 @@ export async function listConversations(userId) {
   const db = requireDatabase();
   const result = await db.query(
     `SELECT c.id,c.created_at,
+            (SELECT COUNT(*) FROM messages um WHERE um.conversation_id=c.id AND um.sender_id<>$1 AND um.read_at IS NULL) AS unread_count,
             COALESCE(json_agg(json_build_object(
               'id',u.id,'username',u.username,'firstName',u.first_name,'lastName',u.last_name
             ) ORDER BY u.username) FILTER (WHERE u.id IS NOT NULL),'[]') AS members,
