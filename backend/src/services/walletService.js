@@ -47,7 +47,7 @@ export async function requestWithdrawal(userId, amountKobo, bankAccountId) {
     if (!validation.ok) { await client.query("ROLLBACK"); return validation; }
     const destination = bank.rows[0];
     const request = await client.query(
-      "INSERT INTO withdrawal_requests (user_id,amount_kobo,fee_kobo,net_kobo,status,bank_account_id,bank_code_snapshot,bank_name_snapshot,account_name_snapshot,account_number_last4_snapshot) VALUES ($1,$2,0,$2,$pending$,$3,$4,$5,$6,$7) RETURNING id,amount_kobo,fee_kobo,net_kobo,status,bank_account_id,bank_name_snapshot,account_name_snapshot,account_number_last4_snapshot,created_at",
+      "INSERT INTO withdrawal_requests (user_id,amount_kobo,fee_kobo,net_kobo,status,bank_account_id,bank_code_snapshot,bank_name_snapshot,account_name_snapshot,account_number_last4_snapshot) VALUES ($1,$2,0,$2,'pending',$3,$4,$5,$6,$7) RETURNING id,amount_kobo,fee_kobo,net_kobo,status,bank_account_id,bank_name_snapshot,account_name_snapshot,account_number_last4_snapshot,created_at",
       [userId, amountKobo, bankAccountId, destination.bank_code, destination.bank_name, destination.account_name, destination.account_number_last4]
     );
     await client.query("UPDATE wallet_accounts SET available_kobo=available_kobo-$1, pending_kobo=pending_kobo+$1, updated_at=NOW() WHERE user_id=$2", [amountKobo, userId]);
