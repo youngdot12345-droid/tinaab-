@@ -101,3 +101,8 @@ CREATE TABLE IF NOT EXISTS audit_logs (
 
 CREATE INDEX IF NOT EXISTS idx_audit_logs_created ON audit_logs(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_audit_logs_actor ON audit_logs(actor_user_id, created_at DESC);
+
+ALTER TABLE withdrawal_requests ADD COLUMN IF NOT EXISTS processed_at TIMESTAMPTZ;
+ALTER TABLE withdrawal_requests ADD COLUMN IF NOT EXISTS failure_reason TEXT;
+CREATE INDEX IF NOT EXISTS idx_withdrawals_status_created
+  ON withdrawal_requests(status, created_at);
