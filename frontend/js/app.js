@@ -100,7 +100,7 @@ async function chatView(){
  try{
   const r=await TinaabAPI.get("/api/conversations");
   const conversations=r.conversations||[];
-  feed.innerHTML=`<section class="screen"><h1>Chat</h1><div class="card"><strong>Messages</strong><p class="muted">Your Tinaab conversations will appear here.</p></div><div id="conversationList">${conversations.length?conversations.map(c=>{const others=(c.members||[]).filter(m=>Number(m.id)!==Number(state.user.id));const person=others[0];return `<button class="conversation-row" data-conversation="${c.id}"><div><strong>@${escapeHtml(person?.username||"conversation")}</strong><br><small>${escapeHtml(c.last_message?.body||"No messages yet")}</small></div><span>›</span></button>`}).join(""):'<div class="card"><p class="muted">No conversations yet.</p></div>'}</div></section>`;
+  feed.innerHTML=`<section class="screen"><h1>Chat</h1><div class="card"><strong>Messages</strong><p class="muted">Your Tinaab conversations will appear here.</p></div><div id="conversationList">${conversations.length?conversations.map(c=>{const others=(c.members||[]).filter(m=>Number(m.id)!==Number(state.user.id));const person=others[0];return `<button class="conversation-row" data-conversation="${c.id}"><div><strong>@${escapeHtml(person?.username||"conversation")}</strong><br><small>${escapeHtml(c.last_message?.body||"No messages yet")}</small>${Number(c.unread_count||0)?`<span class="pill">${Number(c.unread_count)} new</span>`:""}</div><span>›</span></button>`}).join(""):'<div class="card"><p class="muted">No conversations yet.</p></div>'}</div></section>`;
  }catch(e){feed.innerHTML='<section class="screen"><h1>Chat</h1><div class="card"><p>'+escapeHtml(e.message)+'</p></div></section>'}
 }
 async function openConversation(id){
