@@ -62,13 +62,31 @@ async function notificationsView(){
  if(!state.user){feed.innerHTML="<section class=\"screen\"><h1>Notifications</h1><div class=\"card\"><p>Log in to view notifications.</p><button class=\"primary\" id=\"notifyLogin\">Log in</button></div></section>";return}
  try{const r=await TinaabAPI.get("/api/notifications");const items=r.notifications||[];feed.innerHTML=`<section class="screen"><div class="row"><h1>Notifications</h1><button class="text-btn" id="readNotifications">Mark all read</button></div>${items.length?items.map(n=>`<div class="card"><strong>${escapeHtml(n.actor_username?"@"+n.actor_username:"Tinaab")}</strong> ${escapeHtml(n.type)} your post.<br><small>${escapeHtml(n.created_at||"")}</small></div>`).join(""):"<div class=\"card\"><p class=\"muted\">No notifications yet.</p></div>"}</section>`}catch(e){toast(e.message)}
 }
+function createView(){
+ if(!state.user){feed.innerHTML='<section class="screen"><h1>Create</h1><div class="card"><p>Log in to create a post.</p><button class="primary" id="createLogin">Log in</button></div></section>';return}
+ feed.innerHTML='<section class="screen"><h1>Create post</h1><div class="card auth-card"><textarea id="postCaption" maxlength="5000" placeholder="Write a caption..." style="display:block;width:100%;min-height:140px;margin:10px 0;padding:14px 15px;border-radius:12px;border:1px solid #ffffff18;background:#0b0b0b;color:#fff;resize:vertical"></textarea><input id="mediaUrl" placeholder="Media URL (optional)"><select id="mediaType"><option value="">No media</option><option value="image">Image</option><option value="video">Video</option></select><select id="visibility"><option value="public">Public</option><option value="private">Private</option></select><button class="primary full" id="publishPost">Publish post</button><button class="text-btn" id="cancelCreate">Cancel</button><p class="muted">The post is saved by the Tinaab backend. Direct video/image file storage will be connected in the media-upload stage.</p></div></section>';
+}
+async function publishPost(){
+ try{
+  const caption=document.querySelector("#postCaption")?.value||"";
+  const mediaUrl=document.querySelector("#mediaUrl")?.value.trim()||"";
+  const mediaType=document.querySelector("#mediaType")?.value||"";
+  const visibility=document.querySelector("#visibility")?.value||"public";
+  const r=await TinaabAPI.post("/api/posts",{caption,mediaUrl,mediaType,visibility});
+  if(!r.ok)throw new Error(r.reason||"Could not publish post.");
+  toast("Post published");
+  showView("home");
+ }catch(e){toast(e.message)}
+}
 async function commentPost(postId){
  if(!state.user){toast("Log in to comment.");return}
- try{const r=await TinaabAPI.get("/api/posts/"+postId+"/comments");const text=prompt("Comments:
-"+(r.comments||[]).map(c=>"@"+c.username+": "+c.body).join("
-")+"
-
-Write a comment:");if(text===null||!text.trim())return;await TinaabAPI.post("/api/posts/"+postId+"/comments",{body:text.trim()});toast("Comment added");loadFeed()}catch(e){toast(e.message)}
+ feed.innerHTML='<section class="screen"><h1>Comments</h1><div class="card"><div id="commentList"><p class="muted">Loading comments...</p></div><textarea id="commentBody" maxlength="2000" placeholder="Write a comment..." style="display:block;width:100%;min-height:110px;margin:10px 0;padding:14px 15px;border-radius:12px;border:1px solid #ffffff18;background:#0b0b0b;color:#fff;resize:vertical"></textarea><button class="primary full" id="sendComment" data-post-id="'+postId+'">Comment</button><button class="text-btn" id="cancelComment">Back</button></div></section>';
+ try{const r=await TinaabAPI.get("/api/posts/"+postId+"/comments");const list=r.comments||[];document.querySelector("#commentList").innerHTML=list.length?list.map(c=>'<div class="card"><strong>@'+escapeHtml(c.username)+'</strong><p>'+escapeHtml(c.body)+'</p></div>').join(""):'<p class="muted">No comments yet.</p>'}catch(e){toast(e.message)}
+}
+async function sendComment(postId){
+ const body=document.querySelector("#commentBody")?.value.trim();
+ if(!body)return;
+ try{await TinaabAPI.post("/api/posts/"+postId+"/comments",{body});toast("Comment added");commentPost(postId)}catch(e){toast(e.message)}
 }
 async function repostPost(postId){if(!state.user){toast("Log in to repost.");return}try{await TinaabAPI.post("/api/posts/"+postId+"/repost",{reposted:true});toast("Post reposted");}catch(e){toast(e.message)}}
 async function chatView(){
@@ -106,11 +124,11 @@ document.addEventListener("click",async e=>{
  if(e.target.closest("#withdrawBtn")){withdraw();return}
  const defaultBank=e.target.closest("[data-default-bank]");if(defaultBank){try{await TinaabAPI.post("/api/bank-accounts/"+defaultBank.dataset.defaultBank+"/default");toast("Default bank updated");await loadWallet();walletView()}catch(err){toast(err.message)}return}
  const like=e.target.closest(".like");if(like){const p=state.posts[Number(like.dataset.i)];if(!state.user){toast("Log in to like posts.");return}try{const liked=!state.liked.has(p.id);const r=await TinaabAPI.post("/api/posts/"+p.id+"/like",{});if(liked)state.liked.add(p.id);else state.liked.delete(p.id);p.likes=Number(r.likesCount??p.likes);renderFeed()}catch(err){toast(err.message)}return}
- if(e.target.closest("#createBtn"))toast(state.user?"Creator upload is next.":"Log in to create a post.");
+ if(e.target.closest("#createBtn")){createView();return;}
  if(e.target.closest("#searchBtn"))toast("Search is next.");
  if(e.target.closest("#notifyBtn")){notificationsView();return;}
- if(e.target.closest("#notifyLogin")){state.authMode="login";showAuth();return}
- if(e.target.closest("#readNotifications")){try{await TinaabAPI.post("/api/notifications/read",{});toast("Notifications marked read");notificationsView()}catch(err){toast(err.message)}return}
+ if(e.target.closest("#notifyLogin")||e.target.closest("#createLogin")){state.authMode="login";showAuth();return}
+ if(e.target.closest("#publishPost")){publishPost();return}\n if(e.target.closest("#cancelCreate")){showView("home");return}\n if(e.target.closest("#sendComment")){sendComment(e.target.closest("#sendComment").dataset.postId);return}\n if(e.target.closest("#cancelComment")){showView("home");return}\n if(e.target.closest("#readNotifications")){try{await TinaabAPI.post("/api/notifications/read",{});toast("Notifications marked read");notificationsView()}catch(err){toast(err.message)}return}
  if(e.target.closest("[data-action=\"comment\"]")){const article=e.target.closest(".post");const i=[...document.querySelectorAll(".post")].indexOf(article);if(i>=0)commentPost(state.posts[i].id);return}
  if(e.target.closest("[data-action=\"repost\"]")){const article=e.target.closest(".post");const i=[...document.querySelectorAll(".post")].indexOf(article);if(i>=0)repostPost(state.posts[i].id);return}
  if(e.target.closest("#logoutBtn")){await TinaabAPI.logout();state.user=null;state.wallet=null;state.banks=[];toast("Logged out");showView("home")}
