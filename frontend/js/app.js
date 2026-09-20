@@ -5,12 +5,12 @@ function toast(msg){toastEl.textContent=msg;toastEl.classList.add("show");clearT
 function escapeHtml(value){return String(value??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[c]))}
 function formatNaira(kobo){return "₦"+(Number(kobo||0)/100).toLocaleString("en-NG",{maximumFractionDigits:2})}
 async function loadSession(){const r=await TinaabAPI.me();state.user=r.ok?r.user:null}
-async function loadFeed(){try{const r=await TinaabAPI.get("/api/feed/public?limit=20");state.posts=(r.posts||[]).map(p=>({id:p.id,user:"@"+p.username,caption:p.caption,media:p.media_url||"✦",likes:Number(p.likes_count||0),comments:Number(p.comments_count||0),shares:0}));renderFeed()}catch{state.posts=[];renderFeed();toast("Feed backend is not connected yet.")}}
+async function loadFeed(){try{const r=await TinaabAPI.get("/api/feed/public?limit=20");state.posts=(r.posts||[]).map(p=>({id:p.id,user:"@"+p.username,caption:p.caption,media:p.media_url||"",mediaType:p.media_type||"",likes:Number(p.likes_count||0),comments:Number(p.comments_count||0),shares:0}));renderFeed()}catch{state.posts=[];renderFeed();toast("Feed backend is not connected yet.")}}
 function renderFeed(){
  if(!state.posts.length){feed.innerHTML='<section class="screen"><h1>Tinaab</h1><div class="card"><strong>No public posts yet.</strong><p>Create the first post when the backend is ready.</p></div></section>';return}
  feed.innerHTML=state.posts.map((p,i)=>`
  <article class="post">
-   <div class="post-media">${escapeHtml(p.media)}</div>
+   <div class="post-media">${p.mediaType==="image"&&p.media?`<img src="${escapeHtml(p.media)}" alt="Tinaab post media" loading="lazy">`:p.mediaType==="video"&&p.media?`<video src="${escapeHtml(p.media)}" controls playsinline preload="metadata"></video>`:p.media?escapeHtml(p.media):"✦"}</div>
    <div class="post-info"><div class="user">${escapeHtml(p.user)}</div><div class="caption">${escapeHtml(p.caption)}</div><div class="tag">#tinaab #foryou</div></div>
    <div class="actions">
      <button class="action like" data-i="${i}"><span>${state.liked.has(p.id)?"♥":"♡"}</span><small>${p.likes+(state.liked.has(p.id)?1:0)}</small></button>
