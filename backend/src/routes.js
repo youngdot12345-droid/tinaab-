@@ -5,6 +5,7 @@ import { registerAuthRoutes } from "./authRoutes.js";
 import { registerProfileRoutes } from "./profileRoutes.js";
 import { registerPostRoutes } from "./postRoutes.js";
 import { registerWalletRoutes } from "./walletRoutes.js";
+import { registerBankAccountRoutes } from "./bankAccountRoutes.js";
 import { registerAdminRoutes } from "./adminRoutes.js";
 import { registerWithdrawalAdminRoutes } from "./adminWithdrawalRoutes.js";
 
@@ -52,6 +53,7 @@ export function registerRoutes(app) {
   registerProfileRoutes(app);
   registerPostRoutes(app);
   registerWalletRoutes(app);
+  registerBankAccountRoutes(app);
   registerAdminRoutes(app);
   registerWithdrawalAdminRoutes(app);
 }
