@@ -106,3 +106,38 @@ ALTER TABLE withdrawal_requests ADD COLUMN IF NOT EXISTS processed_at TIMESTAMPT
 ALTER TABLE withdrawal_requests ADD COLUMN IF NOT EXISTS failure_reason TEXT;
 CREATE INDEX IF NOT EXISTS idx_withdrawals_status_created
   ON withdrawal_requests(status, created_at);
+
+
+-- Payment and payout provider records.
+CREATE TABLE IF NOT EXISTS payment_transactions (
+  id BIGSERIAL PRIMARY KEY,
+  user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  provider TEXT NOT NULL,
+  provider_reference TEXT NOT NULL UNIQUE,
+  provider_transaction_id TEXT,
+  transaction_type TEXT NOT NULL,
+  amount_kobo BIGINT NOT NULL CHECK (amount_kobo > 0),
+  currency TEXT NOT NULL DEFAULT 'NGN',
+  status TEXT NOT NULL DEFAULT 'pending',
+  provider_status TEXT,
+  failure_reason TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_payment_transactions_user_created
+  ON payment_transactions(user_id, created_at DESC);
+
+CREATE INDEX IF NOT EXISTS idx_payment_transactions_status
+  ON payment_transactions(status, created_at DESC);
+
+CREATE TABLE IF NOT EXISTS payout_accounts (
+  user_id BIGINT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+  provider TEXT NOT NULL,
+  recipient_code TEXT NOT NULL UNIQUE,
+  bank_code TEXT NOT NULL,
+  account_name_last4 TEXT,
+  status TEXT NOT NULL DEFAULT 'active',
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
