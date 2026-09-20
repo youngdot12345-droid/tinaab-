@@ -11,7 +11,7 @@ function renderFeed(){
  feed.innerHTML=state.posts.map((p,i)=>`
  <article class="post">
    <div class="post-media">${p.mediaType==="image"&&p.media?`<img src="${escapeHtml(p.media)}" alt="Tinaab post media" loading="lazy">`:p.mediaType==="video"&&p.media?`<video src="${escapeHtml(p.media)}" controls playsinline preload="metadata"></video>`:p.media?escapeHtml(p.media):"✦"}</div>
-   <div class="post-info"><div class="user">${escapeHtml(p.user)}</div><div class="caption">${escapeHtml(p.caption)}</div><div class="tag">#tinaab #foryou</div></div>
+   <div class="post-info"><button class="user profile-link" data-username="${escapeHtml(String(p.user).replace(/^@/,''))}">${escapeHtml(p.user)}</button><div class="caption">${escapeHtml(p.caption)}</div><div class="tag">#tinaab #foryou</div></div>
    <div class="actions">
      <button class="action like" data-i="${i}"><span>${state.liked.has(p.id)?"♥":"♡"}</span><small>${p.likes+(state.liked.has(p.id)?1:0)}</small></button>
      <button class="action" data-action="comment"><span>○</span><small>${p.comments}</small></button>
@@ -111,10 +111,22 @@ async function openConversation(id){
   await TinaabAPI.post("/api/conversations/"+id+"/read",{});
  }catch(e){toast(e.message)}
 }
+async function openProfile(username){
+  try{
+    const r=await TinaabAPI.get("/api/profiles/"+encodeURIComponent(username));
+    const p=r.profile;if(!p)throw new Error("Profile not found.");
+    const self=state.user&&Number(state.user.id)===Number(p.id);
+    feed.innerHTML='<section class="screen"><div class="row"><button class="text-btn" id="backToFeed">← For You</button><span class="pill">Profile</span></div><div class="profile-head"><div class="avatar">'+escapeHtml((p.first_name||p.username||"T").slice(0,1).toUpperCase())+'</div><h1>@'+escapeHtml(p.username)+'</h1><p>'+escapeHtml([p.first_name,p.last_name].filter(Boolean).join(" "))+'</p><div class="stats"><div class="stat"><strong>'+Number(p.following_count||0)+'</strong><small>Following</small></div><div class="stat"><strong>'+Number(p.followers_count||0)+'</strong><small>Followers</small></div></div>'+(self?'':'<button class="primary full" id="followProfile" data-user-id="'+p.id+'">'+(p.is_following?'Following':'Follow')+'</button><button class="primary full" id="messageProfile">Message</button>')+'</div></section>';
+  }catch(e){toast(e.message)}
+}
+function searchView(){
+ feed.innerHTML='<section class="screen"><h1>Search Tinaab</h1><div class="card"><input id="userSearch" placeholder="Search username or name" autocomplete="off"><div id="searchResults"><p class="muted">Type to find people.</p></div></div></section>';
+ document.querySelector("#userSearch")?.focus();
+}
 function profileView(){if(!state.user){feed.innerHTML='<section class="screen"><h1>Tinaab Profile</h1><div class="card"><p>Log in or create an account to use your real profile.</p><button class="primary" id="profileLogin">Log in</button></div></section>';return}feed.innerHTML=`<section class="screen"><div class="profile-head"><div class="avatar">${escapeHtml((state.user.first_name||"T").slice(0,1).toUpperCase())}</div><h1>@${escapeHtml(state.user.username)}</h1><span class="pill">${state.user.email_verified?"Verified":"Unverified"}</span><div class="stats"><div class="stat"><strong>—</strong><small>Following</small></div><div class="stat"><strong>—</strong><small>Followers</small></div><div class="stat"><strong>—</strong><small>Likes</small></div></div><button class="primary" id="logoutBtn">Log out</button></div></section>`}
 function showView(view){state.view=view;document.querySelectorAll(".nav-item").forEach(b=>b.classList.toggle("active",b.dataset.view===view));if(view==="home"){loadFeed();return}if(view==="chat"){chatView();return}if(view==="wallet"){if(state.user)loadWallet().then(walletView).catch(e=>toast(e.message));else walletView();return}if(view==="profile"){profileView();return}}
-document.addEventListener("click",async e=>{
- const nav=e.target.closest(".nav-item");if(nav){showView(nav.dataset.view);return}
+let searchTimer;document.addEventListener("input",e=>{if(e.target.id!=="userSearch")return;clearTimeout(searchTimer);const q=e.target.value.trim();if(!q){document.querySelector("#searchResults").innerHTML="<p class=\"muted\">Type to find people.</p>";return}searchTimer=setTimeout(async()=>{try{const r=await TinaabAPI.get("/api/users/search?q="+encodeURIComponent(q));const users=r.users||[];document.querySelector("#searchResults").innerHTML=users.length?users.map(u=>"<button class=\"conversation-row profile-result\" data-username=\""+escapeHtml(u.username)+"\"><div><strong>@"+escapeHtml(u.username)+"</strong><br><small>"+escapeHtml([u.first_name,u.last_name].filter(Boolean).join(" "))+" • "+Number(u.followers_count||0)+" followers</small></div><span>›</span></button>").join(""):"<p class=\"muted\">No users found.</p>"}catch(err){toast(err.message)}},250)});document.addEventListener("click",async e=>{
+ const result=e.target.closest(".profile-result");if(result){openProfile(result.dataset.username);return} const profileLink=e.target.closest(".profile-link");if(profileLink){openProfile(profileLink.dataset.username);return} if(e.target.closest("#backToFeed")){showView("home");return} if(e.target.closest("#followProfile")){const b=e.target.closest("#followProfile");const following=b.textContent.trim()==="Follow";try{const r=following?await TinaabAPI.post("/api/users/"+b.dataset.userId+"/follow",{}):await TinaabAPI.del("/api/users/"+b.dataset.userId+"/follow");if(!r.ok)throw new Error(r.reason||"Could not update follow.");openProfile(document.querySelector(".profile-head h1").textContent.replace(/^@/,""))}catch(err){toast(err.message)}return} const nav=e.target.closest(".nav-item");if(nav){showView(nav.dataset.view);return}
  if(e.target.closest("#authSubmit")){submitAuth();return}
  if(e.target.closest("#authSwitch")){state.authMode=state.authMode==="login"?"signup":"login";showAuth();return}
  if(e.target.closest("#verifySubmit")){verify();return}
@@ -129,9 +141,9 @@ document.addEventListener("click",async e=>{
  if(e.target.closest("#saveBank")){saveBank();return}
  if(e.target.closest("#withdrawBtn")){withdraw();return}
  const defaultBank=e.target.closest("[data-default-bank]");if(defaultBank){try{await TinaabAPI.post("/api/bank-accounts/"+defaultBank.dataset.defaultBank+"/default");toast("Default bank updated");await loadWallet();walletView()}catch(err){toast(err.message)}return}
- const like=e.target.closest(".like");if(like){const p=state.posts[Number(like.dataset.i)];if(!state.user){toast("Log in to like posts.");return}try{const liked=!state.liked.has(p.id);const r=liked?await TinaabAPI.del("/api/posts/"+p.id+"/like"):await TinaabAPI.post("/api/posts/"+p.id+"/like",{});if(liked)state.liked.delete(p.id);else state.liked.add(p.id);p.likes=Number(r.likesCount??p.likes);renderFeed()}catch(err){toast(err.message)}return}
+ const like=e.target.closest(".like");if(like){const p=state.posts[Number(like.dataset.i)];if(!state.user){toast("Log in to like posts.");return}try{const isLiked=state.liked.has(p.id);const r=isLiked?await TinaabAPI.del("/api/posts/"+p.id+"/like"):await TinaabAPI.post("/api/posts/"+p.id+"/like",{});if(isLiked)state.liked.delete(p.id);else state.liked.add(p.id);p.likes=Number(r.likesCount??p.likes);renderFeed()}catch(err){toast(err.message)}return}
  if(e.target.closest("#createBtn")){createView();return;}
- if(e.target.closest("#searchBtn"))toast("Search is next.");
+ if(e.target.closest("#searchBtn")){searchView();return;}
  if(e.target.closest("#notifyBtn")){notificationsView();return;}
  if(e.target.closest("#notifyLogin")||e.target.closest("#createLogin")){state.authMode="login";showAuth();return}
  if(e.target.closest("#publishPost")){publishPost();return}\n if(e.target.closest("#cancelCreate")){showView("home");return}\n if(e.target.closest("#sendComment")){sendComment(e.target.closest("#sendComment").dataset.postId);return}\n if(e.target.closest("#cancelComment")){showView("home");return}\n if(e.target.closest("#readNotifications")){try{await TinaabAPI.post("/api/notifications/read",{});toast("Notifications marked read");notificationsView()}catch(err){toast(err.message)}return}
