@@ -58,15 +58,34 @@ function walletView(){
 function bankForm(){feed.innerHTML=`<section class="screen"><h1>Add bank account</h1><div class="card auth-card"><input id="bankCode" placeholder="Bank code"><input id="bankName" placeholder="Bank name"><input id="accountName" placeholder="Account name"><input id="accountNumber" inputmode="numeric" maxlength="10" placeholder="10-digit account number"><button class="primary full" id="saveBank">Save bank account</button><button class="text-btn" id="cancelBank">Cancel</button><p class="muted">The full account number is encrypted on the server; the app only displays a masked version.</p></div></section>`}
 async function saveBank(){try{await TinaabAPI.post("/api/bank-accounts",{bankCode:document.querySelector("#bankCode").value.trim(),bankName:document.querySelector("#bankName").value.trim(),accountName:document.querySelector("#accountName").value.trim(),accountNumber:document.querySelector("#accountNumber").value.trim()});toast("Bank account saved");await loadWallet();showView("wallet")}catch(e){toast(e.message)}}
 async function withdraw(){try{const amount=Number(document.querySelector("#withdrawAmount").value);const bankAccountId=Number(document.querySelector("#withdrawBank").value);if(!Number.isInteger(amount)||amount<=0)throw new Error("Enter a valid whole-naira amount.");await TinaabAPI.post("/api/withdrawals",{amountKobo:amount*100,bankAccountId});toast("Withdrawal request submitted");await loadWallet();showView("wallet")}catch(e){toast(e.message)}}
+async function chatView(){
+ if(!state.user){feed.innerHTML='<section class="screen"><h1>Chat</h1><div class="card"><p>Log in to use Tinaab messaging.</p><button class="primary" id="chatLogin">Log in</button></div></section>';return}
+ try{
+  const r=await TinaabAPI.get("/api/conversations");
+  const conversations=r.conversations||[];
+  feed.innerHTML=`<section class="screen"><h1>Chat</h1><div class="card"><strong>Messages</strong><p class="muted">Your Tinaab conversations will appear here.</p></div><div id="conversationList">${conversations.length?conversations.map(c=>{const others=(c.members||[]).filter(m=>Number(m.id)!==Number(state.user.id));const person=others[0];return `<button class="conversation-row" data-conversation="${c.id}"><div><strong>@${escapeHtml(person?.username||"conversation")}</strong><br><small>${escapeHtml(c.last_message?.body||"No messages yet")}</small></div><span>›</span></button>`}).join(""):'<div class="card"><p class="muted">No conversations yet.</p></div>'}</div></section>`;
+ }catch(e){feed.innerHTML='<section class="screen"><h1>Chat</h1><div class="card"><p>'+escapeHtml(e.message)+'</p></div></section>'}
+}
+async function openConversation(id){
+ try{
+  const r=await TinaabAPI.get("/api/conversations/"+id+"/messages");
+  const messages=r.messages||[];
+  feed.innerHTML=`<section class="screen chat-screen"><div class="row"><button class="text-btn" id="backChat">← Chat</button><span class="pill">Conversation</span></div><div class="messages" id="messages">${messages.map(m=>`<div class="message ${Number(m.sender_id)===Number(state.user.id)?"mine":""}"><span>${escapeHtml(m.body)}</span></div>`).join("")||'<p class="muted">No messages yet.</p>'}</div><div class="message-compose"><input id="messageBody" maxlength="10000" placeholder="Write a message..."><button class="primary" id="sendMessage" data-conversation="${id}">Send</button></div></section>`;
+  await TinaabAPI.post("/api/conversations/"+id+"/read",{});
+ }catch(e){toast(e.message)}
+}
 function profileView(){if(!state.user){feed.innerHTML='<section class="screen"><h1>Tinaab Profile</h1><div class="card"><p>Log in or create an account to use your real profile.</p><button class="primary" id="profileLogin">Log in</button></div></section>';return}feed.innerHTML=`<section class="screen"><div class="profile-head"><div class="avatar">${escapeHtml((state.user.first_name||"T").slice(0,1).toUpperCase())}</div><h1>@${escapeHtml(state.user.username)}</h1><span class="pill">${state.user.email_verified?"Verified":"Unverified"}</span><div class="stats"><div class="stat"><strong>—</strong><small>Following</small></div><div class="stat"><strong>—</strong><small>Followers</small></div><div class="stat"><strong>—</strong><small>Likes</small></div></div><button class="primary" id="logoutBtn">Log out</button></div></section>`}
-function showView(view){state.view=view;document.querySelectorAll(".nav-item").forEach(b=>b.classList.toggle("active",b.dataset.view===view));if(view==="home"){loadFeed();return}if(view==="chat"){feed.innerHTML='<section class="screen"><h1>Chat</h1><div class="card"><strong>Messaging backend</strong><p>Conversation and realtime messaging are the next social backend stage.</p></div></section>';return}if(view==="wallet"){if(state.user)loadWallet().then(walletView).catch(e=>toast(e.message));else walletView();return}if(view==="profile"){profileView();return}}
+function showView(view){state.view=view;document.querySelectorAll(".nav-item").forEach(b=>b.classList.toggle("active",b.dataset.view===view));if(view==="home"){loadFeed();return}if(view==="chat"){chatView();return}if(view==="wallet"){if(state.user)loadWallet().then(walletView).catch(e=>toast(e.message));else walletView();return}if(view==="profile"){profileView();return}}
 document.addEventListener("click",async e=>{
  const nav=e.target.closest(".nav-item");if(nav){showView(nav.dataset.view);return}
  if(e.target.closest("#authSubmit")){submitAuth();return}
  if(e.target.closest("#authSwitch")){state.authMode=state.authMode==="login"?"signup":"login";showAuth();return}
  if(e.target.closest("#verifySubmit")){verify();return}
  if(e.target.closest("#backAuth")){showAuth();return}
- if(e.target.closest("#walletLogin")||e.target.closest("#profileLogin")){state.authMode="login";showAuth();return}
+ if(e.target.closest("#walletLogin")||e.target.closest("#profileLogin")||e.target.closest("#chatLogin")){state.authMode="login";showAuth();return}
+ if(e.target.closest("#backChat")){showView("chat");return}
+ const conversation=e.target.closest("[data-conversation]");if(conversation){openConversation(conversation.dataset.conversation);return}
+ if(e.target.closest("#sendMessage")){const btn=e.target.closest("#sendMessage");const body=document.querySelector("#messageBody")?.value.trim();if(!body)return;try{await TinaabAPI.post("/api/conversations/"+btn.dataset.conversation+"/messages",{body});openConversation(btn.dataset.conversation)}catch(err){toast(err.message)}return}
  if(e.target.closest("#refreshWallet")){try{await loadWallet();walletView()}catch(err){toast(err.message)}return}
  if(e.target.closest("#addBank")){bankForm();return}
  if(e.target.closest("#cancelBank")){showView("wallet");return}
