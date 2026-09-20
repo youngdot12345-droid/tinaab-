@@ -1,5 +1,5 @@
 import { getUserFromToken } from "./services/authService.js";
-import { followUser, getFollowingFeed, getProfileByUsername, unfollowUser } from "./services/profileService.js";
+import { followUser, getFollowingFeed, getProfileByUsername, searchUsers, unfollowUser } from "./services/profileService.js";
 
 function readBearerToken(req) {
   const header = String(req.headers.authorization || "");
@@ -16,6 +16,13 @@ async function requireUser(req, res) {
 }
 
 export function registerProfileRoutes(app) {
+  app.get("/api/users/search", async (req, res, next) => {
+    try {
+      const users = await searchUsers(req.query.q, req.query.limit);
+      res.json({ ok: true, users });
+    } catch (error) { next(error); }
+  });
+
   app.get("/api/profiles/:username", async (req, res, next) => {
     try {
       const viewer = await getUserFromToken(readBearerToken(req));
