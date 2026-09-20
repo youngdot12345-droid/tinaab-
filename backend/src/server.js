@@ -12,6 +12,7 @@ const pool = process.env.DATABASE_URL ? new Pool({ connectionString: process.env
 app.disable("x-powered-by");
 app.use(helmet());
 app.use(express.json({ limit: "1mb" }));
+app.use("/uploads", express.static(process.env.MEDIA_STORAGE_DIR || "uploads", { maxAge: "1h" }));
 app.use(rateLimit({ windowMs: 60_000, limit: 120, standardHeaders: true, legacyHeaders: false }));
 
 const CONTACT_EMAIL = process.env.CONTACT_EMAIL || "youngdots12345@gmail.com";
