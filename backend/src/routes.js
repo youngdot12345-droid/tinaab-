@@ -4,6 +4,7 @@ import { canWithdrawToday, validateWithdrawalAmount } from "./services/withdrawa
 import { registerAuthRoutes } from "./authRoutes.js";
 import { registerProfileRoutes } from "./profileRoutes.js";
 import { registerPostRoutes } from "./postRoutes.js";
+import { registerWalletRoutes } from "./walletRoutes.js";
 
 export function registerRoutes(app) {
   app.get("/api/health", (_req, res) => res.json({ ok: true, service: "tinaab-api" }));
@@ -48,4 +49,5 @@ export function registerRoutes(app) {
   registerAuthRoutes(app);
   registerProfileRoutes(app);
   registerPostRoutes(app);
+  registerWalletRoutes(app);
 }
