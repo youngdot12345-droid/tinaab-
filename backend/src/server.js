@@ -18,4 +18,10 @@ app.use("/api/", rateLimit({
 
 registerRoutes(app);
 
+app.use((error, _req, res, _next) => {
+  console.error(error);
+  const status = Number(error.statusCode) || (error.code === "23505" ? 409 : 500);
+  res.status(status).json({ ok: false, reason: status === 500 ? "Internal server error." : error.message });
+});
+
 app.listen(port, () => console.log("Tinaab API listening on port " + port));
