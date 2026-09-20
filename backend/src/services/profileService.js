@@ -79,3 +79,22 @@ export async function getFollowingFeed(userId, limit = 20, cursor = null) {
 
   return { ok: true, posts: result.rows };
 }
+
+
+export async function searchUsers(query, limit = 20) {
+  const pool = requireDatabase();
+  const q = String(query || "").trim();
+  if (!q) return [];
+  const safeLimit = Math.min(Math.max(Number(limit) || 20, 1), 30);
+  const result = await pool.query(
+    `SELECT u.id, u.first_name, u.last_name, u.username,
+            (SELECT COUNT(*) FROM follows f WHERE f.following_id = u.id) AS followers_count
+       FROM users u
+      WHERE LOWER(u.username) LIKE LOWER($1)
+         OR LOWER(u.first_name || ' ' || u.last_name) LIKE LOWER($1)
+      ORDER BY u.username ASC
+      LIMIT $2`,
+    [`%${q}%`, safeLimit]
+  );
+  return result.rows;
+}
