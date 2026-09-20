@@ -56,44 +56,6 @@ app.post("/api/contact", async (req, res) => {
   });
 });
 
-app.post("/api/rewards/claim", async (req, res) => {
-  const userId = String(req.body?.userId || "").trim();
-  const activity = String(req.body?.activity || "").trim();
-  if (!userId || !activity) return res.status(400).json({ error: "userId and activity are required." });
-
-  // Server-authoritative reward boundary. The client never supplies the money amount.
-  const amountKobo = 50000;
-
-  if (!pool) {
-    return res.status(503).json({ error: "Database is not configured.", rewardAmountKobo: amountKobo });
-  }
-
-  const client = await pool.connect();
-  try {
-    await client.query("BEGIN");
-    const duplicate = await client.query(
-      "SELECT id FROM reward_events WHERE user_id=$1 AND activity=$2 LIMIT 1",
-      [userId, activity]
-    );
-    if (duplicate.rowCount) {
-      await client.query("ROLLBACK");
-      return res.status(409).json({ error: "This activity has already been claimed." });
-    }
-
-    const result = await client.query(
-      "INSERT INTO reward_events (user_id,activity,amount_kobo,status) VALUES ($1,$2,$3,'pending_review') RETURNING id,user_id,activity,amount_kobo,status,created_at",
-      [userId, activity, amountKobo]
-    );
-    await client.query("COMMIT");
-    res.status(201).json({ ok: true, reward: result.rows[0] });
-  } catch (error) {
-    await client.query("ROLLBACK");
-    res.status(500).json({ error: "Unable to record reward." });
-  } finally {
-    client.release();
-  }
-});
-
 // Register the modular Tinaab API routes after the core service routes above.
 // This keeps authentication, profiles and social features connected to the server.
 registerRoutes(app);
