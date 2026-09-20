@@ -2,6 +2,7 @@ import express from "express";
 import helmet from "helmet";
 import rateLimit from "express-rate-limit";
 import pg from "pg";
+import { registerRoutes } from "./routes.js";
 
 const { Pool } = pg;
 const app = express();
@@ -93,6 +94,10 @@ app.post("/api/rewards/claim", async (req, res) => {
   }
 });
 
+// Register the modular Tinaab API routes after the core service routes above.
+// This keeps authentication, profiles and social features connected to the server.
+registerRoutes(app);
+
 // Payment gateway placeholder.
 // No Paystack/payment-provider API call is made until credentials are configured.
 // Keep secret keys server-side only.
@@ -106,4 +111,23 @@ app.post("/api/payments/initialize", (_req, res) => {
   return res.status(501).json({ error: "Payment adapter placeholder ready for implementation." });
 });
 
-app.listen(port, () => console.log("Tinaab API listening on port " + port));
+app.use((error, _req, res, _next) => {
+  console.error("Tinaab API error:", error);
+  if (res.headersSent) return;
+  res.status(500).json({ ok: false, error: "Internal server error." });
+});
+
+const server = app.listen(port, () => {
+  console.log("Tinaab API listening on port " + port);
+});
+
+function shutdown(signal) {
+  console.log("Tinaab API shutting down: " + signal);
+  server.close(async () => {
+    if (pool) await pool.end();
+    process.exit(0);
+  });
+}
+
+process.on("SIGTERM", () => shutdown("SIGTERM"));
+process.on("SIGINT", () => shutdown("SIGINT"));
