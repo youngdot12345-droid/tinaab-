@@ -1,0 +1,13 @@
+import express from "express";
+import helmet from "helmet";
+import rateLimit from "express-rate-limit";
+import { config } from "./config.js";
+import { calculateReward, validateClientRewardClaim } from "./services/rewardService.js";
+const app=express();
+app.disable("x-powered-by"); app.use(helmet()); app.use(express.json({limit:"100kb"}));
+app.use("/api/", rateLimit({windowMs:60000,limit:120,standardHeaders:true,legacyHeaders:false}));
+app.get("/api/health",(_req,res)=>res.json({ok:true,service:"tinaab-api"}));
+app.post("/api/rewards/quote",(req,res)=>{const {activityType}=req.body??{};const result=calculateReward(activityType);if(!result.ok)return res.status(400).json(result);res.json(result);});
+app.post("/api/rewards/claim",(req,res)=>{const {activityType,clientAmount}=req.body??{};const result=validateClientRewardClaim(activityType,clientAmount);if(!result.ok)return res.status(400).json(result);res.status(202).json({ok:true,amount:result.amount,currency:result.currency,status:"pending_verification",message:"Claim received. Server verification is required before crediting."});});
+app.get("/api/security/reward-policy",(_req,res)=>res.json({currency:config.reward.currency,maxPerVerifiedActivityNaira:config.reward.maxPerVerifiedActivityNaira,clientMaySetAmount:false}));
+app.listen(config.port,()=>console.log("Tinaab API listening on port "+config.port));
