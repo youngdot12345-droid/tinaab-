@@ -91,7 +91,7 @@ export async function createPayoutAccount(userId, name, accountNumber, bankCode)
       (user_id,provider,recipient_code,bank_code,account_name_last4,status,updated_at)
      VALUES ($1,'paystack',$2,$3,$4,'active',NOW())
      ON CONFLICT (user_id) DO UPDATE SET provider='paystack',recipient_code=EXCLUDED.recipient_code,bank_code=EXCLUDED.bank_code,account_name_last4=EXCLUDED.account_name_last4,status='active',updated_at=NOW()`,
-    [userId, recipient.recipient_code, safeBank, safeName.slice(-4)]
+    [userId, recipient.recipient_code, safeBank, (recipient.details?.account_number ? String(recipient.details.account_number).slice(-4) : safeAccount.slice(-4))]
   );
 
   return { ok: true, recipientCode: recipient.recipient_code, accountName: recipient.details?.account_name || recipient.name || safeName, accountLast4: recipient.details?.account_number ? String(recipient.details.account_number).slice(-4) : safeAccount.slice(-4) };
