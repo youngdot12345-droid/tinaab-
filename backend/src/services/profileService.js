@@ -1,0 +1,81 @@
+import { requireDatabase } from "../db/db.js";
+import { canFollow } from "./socialRules.js";
+
+export async function getProfileByUsername(username, viewerId = null) {
+  const pool = requireDatabase();
+  const result = await pool.query(
+    `SELECT u.id, u.first_name, u.last_name, u.username, u.email_verified,
+            u.created_at,
+            (SELECT COUNT(*) FROM follows f WHERE f.following_id = u.id) AS followers_count,
+            (SELECT COUNT(*) FROM follows f WHERE f.follower_id = u.id) AS following_count,
+            CASE WHEN $2::bigint IS NULL THEN false
+                 ELSE EXISTS (SELECT 1 FROM follows vf WHERE vf.follower_id = $2 AND vf.following_id = u.id)
+            END AS is_following
+       FROM users u
+      WHERE LOWER(u.username) = LOWER($1)
+      LIMIT 1`,
+    [String(username || "").trim(), viewerId]
+  );
+
+  if (!result.rows[0]) return null;
+  return result.rows[0];
+}
+
+export async function followUser(followerId, followingId) {
+  const validation = canFollow(followerId, followingId);
+  if (!validation.ok) return validation;
+
+  const pool = requireDatabase();
+  const target = await pool.query("SELECT id FROM users WHERE id = $1", [followingId]);
+  if (!target.rows[0]) return { ok: false, reason: "User not found." };
+
+  await pool.query(
+    `INSERT INTO follows (follower_id, following_id)
+     VALUES ($1, $2)
+     ON CONFLICT (follower_id, following_id) DO NOTHING`,
+    [followerId, followingId]
+  );
+
+  return { ok: true, following: true };
+}
+
+export async function unfollowUser(followerId, followingId) {
+  const validation = canFollow(followerId, followingId);
+  if (!validation.ok) return validation;
+
+  const pool = requireDatabase();
+  await pool.query(
+    "DELETE FROM follows WHERE follower_id = $1 AND following_id = $2",
+    [followerId, followingId]
+  );
+
+  return { ok: true, following: false };
+}
+
+export async function getFollowingFeed(userId, limit = 20, cursor = null) {
+  const pool = requireDatabase();
+  const safeLimit = Math.min(Math.max(Number(limit) || 20, 1), 50);
+  const values = [userId, safeLimit];
+  let cursorClause = "";
+
+  if (cursor) {
+    values.push(cursor);
+    cursorClause = "AND p.created_at < $3";
+  }
+
+  const result = await pool.query(
+    `SELECT p.id, p.user_id, p.caption, p.media_url, p.media_type, p.created_at,
+            u.username, u.first_name, u.last_name,
+            (SELECT COUNT(*) FROM post_likes pl WHERE pl.post_id = p.id) AS likes_count,
+            (SELECT COUNT(*) FROM comments c WHERE c.post_id = p.id) AS comments_count
+       FROM posts p
+       JOIN users u ON u.id = p.user_id
+       JOIN follows f ON f.following_id = p.user_id AND f.follower_id = $1
+      WHERE p.visibility = 'public' ${cursorClause}
+      ORDER BY p.created_at DESC
+      LIMIT $2`,
+    values
+  );
+
+  return { ok: true, posts: result.rows };
+}
