@@ -9,6 +9,7 @@ import { registerBankAccountRoutes } from "./bankAccountRoutes.js";
 import { registerAdminRoutes } from "./adminRoutes.js";
 import { registerWithdrawalAdminRoutes } from "./adminWithdrawalRoutes.js";
 import { registerChatRoutes } from "./chatRoutes.js";
+import { registerSocialInteractionRoutes } from "./socialInteractionRoutes.js";
 
 export function registerRoutes(app) {
   app.get("/api/health", (_req, res) => res.json({ ok: true, service: "tinaab-api" }));
@@ -58,4 +59,5 @@ export function registerRoutes(app) {
   registerAdminRoutes(app);
   registerWithdrawalAdminRoutes(app);
   registerChatRoutes(app);
+  registerSocialInteractionRoutes(app);
 }
