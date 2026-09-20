@@ -1,4 +1,13 @@
+import rateLimit from "express-rate-limit";
 import { getUserFromToken, login, logout, signup, verifyEmail } from "./services/authService.js";
+
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 30,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { ok: false, reason: "Too many authentication attempts. Try again later." }
+});
 
 function readBearerToken(req) {
   const header = String(req.headers.authorization || "");
@@ -6,6 +15,8 @@ function readBearerToken(req) {
 }
 
 export function registerAuthRoutes(app) {
+  app.use("/api/auth", authLimiter);
+
   app.post("/api/auth/signup", async (req, res, next) => {
     try { res.status(201).json(await signup(req.body || {})); } catch (error) { next(error); }
   });
