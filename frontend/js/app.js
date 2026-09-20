@@ -64,13 +64,19 @@ async function notificationsView(){
 }
 function createView(){
  if(!state.user){feed.innerHTML='<section class="screen"><h1>Create</h1><div class="card"><p>Log in to create a post.</p><button class="primary" id="createLogin">Log in</button></div></section>';return}
- feed.innerHTML='<section class="screen"><h1>Create post</h1><div class="card auth-card"><textarea id="postCaption" maxlength="5000" placeholder="Write a caption..." style="display:block;width:100%;min-height:140px;margin:10px 0;padding:14px 15px;border-radius:12px;border:1px solid #ffffff18;background:#0b0b0b;color:#fff;resize:vertical"></textarea><input id="mediaUrl" placeholder="Media URL (optional)"><select id="mediaType"><option value="">No media</option><option value="image">Image</option><option value="video">Video</option></select><select id="visibility"><option value="public">Public</option><option value="private">Private</option></select><button class="primary full" id="publishPost">Publish post</button><button class="text-btn" id="cancelCreate">Cancel</button><p class="muted">The post is saved by the Tinaab backend. Direct video/image file storage will be connected in the media-upload stage.</p></div></section>';
+ feed.innerHTML='<section class="screen"><h1>Create post</h1><div class="card auth-card"><textarea id="postCaption" maxlength="5000" placeholder="Write a caption..." style="display:block;width:100%;min-height:140px;margin:10px 0;padding:14px 15px;border-radius:12px;border:1px solid #ffffff18;background:#0b0b0b;color:#fff;resize:vertical"></textarea><input id="mediaFile" type="file" accept="image/jpeg,image/png,image/webp,image/gif,video/mp4,video/webm,video/quicktime"><input id="mediaUrl" placeholder="Media URL (optional)"><select id="mediaType"><option value="">No media</option><option value="image">Image</option><option value="video">Video</option></select><select id="visibility"><option value="public">Public</option><option value="private">Private</option></select><button class="primary full" id="publishPost">Publish post</button><button class="text-btn" id="cancelCreate">Cancel</button><p class="muted">The post is saved by the Tinaab backend. Images and videos up to 50 MB can now be uploaded through the Tinaab backend.</p></div></section>';
 }
 async function publishPost(){
  try{
   const caption=document.querySelector("#postCaption")?.value||"";
-  const mediaUrl=document.querySelector("#mediaUrl")?.value.trim()||"";
-  const mediaType=document.querySelector("#mediaType")?.value||"";
+  let mediaUrl=document.querySelector("#mediaUrl")?.value.trim()||"";
+  let mediaType=document.querySelector("#mediaType")?.value||"";
+  const file=document.querySelector("#mediaFile")?.files?.[0];
+  if(file){
+   const upload=await TinaabAPI.upload("/api/media/upload",file);
+   mediaUrl=upload.mediaUrl;
+   mediaType=upload.mediaType;
+  }
   const visibility=document.querySelector("#visibility")?.value||"public";
   const r=await TinaabAPI.post("/api/posts",{caption,mediaUrl,mediaType,visibility});
   if(!r.ok)throw new Error(r.reason||"Could not publish post.");
