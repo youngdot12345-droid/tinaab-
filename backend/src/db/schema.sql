@@ -141,3 +141,32 @@ CREATE TABLE IF NOT EXISTS payout_accounts (
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+-- Tinaab wallet withdrawal destinations.
+CREATE TABLE IF NOT EXISTS bank_accounts (
+  id BIGSERIAL PRIMARY KEY,
+  user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  bank_code TEXT NOT NULL,
+  bank_name TEXT NOT NULL,
+  account_name TEXT NOT NULL,
+  account_number_ciphertext TEXT NOT NULL,
+  account_number_iv TEXT NOT NULL,
+  account_number_tag TEXT NOT NULL,
+  account_number_hash TEXT NOT NULL,
+  account_number_last4 TEXT NOT NULL CHECK (account_number_last4 ~ '^[0-9]{4}$'),
+  status TEXT NOT NULL DEFAULT 'active',
+  is_default BOOLEAN NOT NULL DEFAULT FALSE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE (user_id, account_number_hash)
+);
+
+CREATE INDEX IF NOT EXISTS idx_bank_accounts_user_status ON bank_accounts(user_id, status);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_one_default_bank_account_per_user ON bank_accounts(user_id) WHERE is_default = TRUE;
+
+ALTER TABLE withdrawal_requests ADD COLUMN IF NOT EXISTS bank_account_id BIGINT REFERENCES bank_accounts(id);
+ALTER TABLE withdrawal_requests ADD COLUMN IF NOT EXISTS bank_code_snapshot TEXT;
+ALTER TABLE withdrawal_requests ADD COLUMN IF NOT EXISTS bank_name_snapshot TEXT;
+ALTER TABLE withdrawal_requests ADD COLUMN IF NOT EXISTS account_name_snapshot TEXT;
+ALTER TABLE withdrawal_requests ADD COLUMN IF NOT EXISTS account_number_last4_snapshot TEXT;
+CREATE INDEX IF NOT EXISTS idx_withdrawals_bank_account ON withdrawal_requests(bank_account_id, created_at DESC);
