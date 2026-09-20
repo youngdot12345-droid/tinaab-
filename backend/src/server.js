@@ -1,27 +1,109 @@
 import express from "express";
 import helmet from "helmet";
 import rateLimit from "express-rate-limit";
-import { registerRoutes } from "./routes.js";
+import pg from "pg";
 
+const { Pool } = pg;
 const app = express();
 const port = Number(process.env.PORT || 3000);
+const pool = process.env.DATABASE_URL ? new Pool({ connectionString: process.env.DATABASE_URL }) : null;
 
 app.disable("x-powered-by");
 app.use(helmet());
-app.use(express.json({ limit: "100kb" }));
-app.use("/api/", rateLimit({
-  windowMs: 60 * 1000,
-  limit: 120,
-  standardHeaders: true,
-  legacyHeaders: false
-}));
+app.use(express.json({ limit: "1mb" }));
+app.use(rateLimit({ windowMs: 60_000, limit: 120, standardHeaders: true, legacyHeaders: false }));
 
-registerRoutes(app);
+const CONTACT_EMAIL = process.env.CONTACT_EMAIL || "youngdots12345@gmail.com";
 
-app.use((error, _req, res, _next) => {
-  console.error(error);
-  const status = Number(error.statusCode) || (error.code === "23505" ? 409 : 500);
-  res.status(status).json({ ok: false, reason: status === 500 ? "Internal server error." : error.message });
+app.get("/api/health", (_req, res) => {
+  res.json({ ok: true, service: "tinaab-api", databaseConfigured: Boolean(pool), time: new Date().toISOString() });
+});
+
+app.get("/api/config", (_req, res) => {
+  res.json({
+    contactEmail: CONTACT_EMAIL,
+    payment: {
+      provider: process.env.PAYMENT_PROVIDER || "paystack",
+      configured: Boolean(process.env.PAYSTACK_SECRET_KEY)
+    }
+  });
+});
+
+app.post("/api/contact", async (req, res) => {
+  const name = String(req.body?.name || "").trim();
+  const email = String(req.body?.email || "").trim();
+  const message = String(req.body?.message || "").trim();
+
+  if (!name || !message) return res.status(400).json({ error: "Name and message are required." });
+  if (name.length > 100 || email.length > 200 || message.length > 5000) {
+    return res.status(400).json({ error: "One or more fields are too long." });
+  }
+
+  // The form is intentionally first-party. Email delivery can be connected later.
+  // Until then, messages are stored in the database when DATABASE_URL is configured.
+  if (pool) {
+    await pool.query(
+      "INSERT INTO contact_messages (name,email,message) VALUES ($1,$2,$3)",
+      [name, email || null, message]
+    );
+  }
+
+  res.status(201).json({
+    ok: true,
+    message: "Message received.",
+    contactEmail: CONTACT_EMAIL
+  });
+});
+
+app.post("/api/rewards/claim", async (req, res) => {
+  const userId = String(req.body?.userId || "").trim();
+  const activity = String(req.body?.activity || "").trim();
+  if (!userId || !activity) return res.status(400).json({ error: "userId and activity are required." });
+
+  // Server-authoritative reward boundary. The client never supplies the money amount.
+  const amountKobo = 50000;
+
+  if (!pool) {
+    return res.status(503).json({ error: "Database is not configured.", rewardAmountKobo: amountKobo });
+  }
+
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    const duplicate = await client.query(
+      "SELECT id FROM reward_events WHERE user_id=$1 AND activity=$2 LIMIT 1",
+      [userId, activity]
+    );
+    if (duplicate.rowCount) {
+      await client.query("ROLLBACK");
+      return res.status(409).json({ error: "This activity has already been claimed." });
+    }
+
+    const result = await client.query(
+      "INSERT INTO reward_events (user_id,activity,amount_kobo,status) VALUES ($1,$2,$3,'pending_review') RETURNING id,user_id,activity,amount_kobo,status,created_at",
+      [userId, activity, amountKobo]
+    );
+    await client.query("COMMIT");
+    res.status(201).json({ ok: true, reward: result.rows[0] });
+  } catch (error) {
+    await client.query("ROLLBACK");
+    res.status(500).json({ error: "Unable to record reward." });
+  } finally {
+    client.release();
+  }
+});
+
+// Payment gateway placeholder.
+// No Paystack/payment-provider API call is made until credentials are configured.
+// Keep secret keys server-side only.
+app.post("/api/payments/initialize", (_req, res) => {
+  if (!process.env.PAYSTACK_SECRET_KEY) {
+    return res.status(503).json({
+      error: "Payment gateway is not configured yet.",
+      provider: process.env.PAYMENT_PROVIDER || "paystack"
+    });
+  }
+  return res.status(501).json({ error: "Payment adapter placeholder ready for implementation." });
 });
 
 app.listen(port, () => console.log("Tinaab API listening on port " + port));
