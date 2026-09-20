@@ -64,7 +64,11 @@ async function notificationsView(){
 }
 async function commentPost(postId){
  if(!state.user){toast("Log in to comment.");return}
- try{const r=await TinaabAPI.get("/api/posts/"+postId+"/comments");const text=prompt("Comments:\n"+(r.comments||[]).map(c=>"@"+c.username+": "+c.body).join("\n")+"\n\nWrite a comment:");if(text===null||!text.trim())return;await TinaabAPI.post("/api/posts/"+postId+"/comments",{body:text.trim()});toast("Comment added");loadFeed()}catch(e){toast(e.message)}
+ try{const r=await TinaabAPI.get("/api/posts/"+postId+"/comments");const text=prompt("Comments:
+"+(r.comments||[]).map(c=>"@"+c.username+": "+c.body).join("
+")+"
+
+Write a comment:");if(text===null||!text.trim())return;await TinaabAPI.post("/api/posts/"+postId+"/comments",{body:text.trim()});toast("Comment added");loadFeed()}catch(e){toast(e.message)}
 }
 async function repostPost(postId){if(!state.user){toast("Log in to repost.");return}try{await TinaabAPI.post("/api/posts/"+postId+"/repost",{reposted:true});toast("Post reposted");}catch(e){toast(e.message)}}
 async function chatView(){
@@ -102,10 +106,13 @@ document.addEventListener("click",async e=>{
  if(e.target.closest("#withdrawBtn")){withdraw();return}
  const defaultBank=e.target.closest("[data-default-bank]");if(defaultBank){try{await TinaabAPI.post("/api/bank-accounts/"+defaultBank.dataset.defaultBank+"/default");toast("Default bank updated");await loadWallet();walletView()}catch(err){toast(err.message)}return}
  const like=e.target.closest(".like");if(like){const p=state.posts[Number(like.dataset.i)];if(!state.user){toast("Log in to like posts.");return}try{const liked=!state.liked.has(p.id);const r=await TinaabAPI.post("/api/posts/"+p.id+"/like",{});if(liked)state.liked.add(p.id);else state.liked.delete(p.id);p.likes=Number(r.likesCount??p.likes);renderFeed()}catch(err){toast(err.message)}return}
- const action=e.target.closest("[data-action]");if(action){toast(action.dataset.action.charAt(0).toUpperCase()+action.dataset.action.slice(1)+" is being connected to the backend.");return}
  if(e.target.closest("#createBtn"))toast(state.user?"Creator upload is next.":"Log in to create a post.");
  if(e.target.closest("#searchBtn"))toast("Search is next.");
  if(e.target.closest("#notifyBtn")){notificationsView();return;}
- if(e.target.closest("#notifyLogin")){state.authMode="login";showAuth();return}\n if(e.target.closest("#readNotifications")){try{await TinaabAPI.post("/api/notifications/read",{});toast("Notifications marked read");notificationsView()}catch(err){toast(err.message)}return}\n if(e.target.closest("[data-action=\"comment\"]")){const article=e.target.closest(".post");const i=[...document.querySelectorAll(".post")].indexOf(article);if(i>=0)commentPost(state.posts[i].id);return}\n if(e.target.closest("[data-action=\"repost\"]")){const article=e.target.closest(".post");const i=[...document.querySelectorAll(".post")].indexOf(article);if(i>=0)repostPost(state.posts[i].id);return}\n if(e.target.closest("#logoutBtn")){await TinaabAPI.logout();state.user=null;state.wallet=null;state.banks=[];toast("Logged out");showView("home")}
+ if(e.target.closest("#notifyLogin")){state.authMode="login";showAuth();return}
+ if(e.target.closest("#readNotifications")){try{await TinaabAPI.post("/api/notifications/read",{});toast("Notifications marked read");notificationsView()}catch(err){toast(err.message)}return}
+ if(e.target.closest("[data-action=\"comment\"]")){const article=e.target.closest(".post");const i=[...document.querySelectorAll(".post")].indexOf(article);if(i>=0)commentPost(state.posts[i].id);return}
+ if(e.target.closest("[data-action=\"repost\"]")){const article=e.target.closest(".post");const i=[...document.querySelectorAll(".post")].indexOf(article);if(i>=0)repostPost(state.posts[i].id);return}
+ if(e.target.closest("#logoutBtn")){await TinaabAPI.logout();state.user=null;state.wallet=null;state.banks=[];toast("Logged out");showView("home")}
 });
 loadSession().then(()=>showView("home"));
