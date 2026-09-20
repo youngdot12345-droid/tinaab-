@@ -6,6 +6,7 @@ import { registerProfileRoutes } from "./profileRoutes.js";
 import { registerPostRoutes } from "./postRoutes.js";
 import { registerWalletRoutes } from "./walletRoutes.js";
 import { registerAdminRoutes } from "./adminRoutes.js";
+import { registerWithdrawalAdminRoutes } from "./adminWithdrawalRoutes.js";
 
 export function registerRoutes(app) {
   app.get("/api/health", (_req, res) => res.json({ ok: true, service: "tinaab-api" }));
@@ -52,4 +53,5 @@ export function registerRoutes(app) {
   registerPostRoutes(app);
   registerWalletRoutes(app);
   registerAdminRoutes(app);
+  registerWithdrawalAdminRoutes(app);
 }
