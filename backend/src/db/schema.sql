@@ -6,10 +6,25 @@ CREATE TABLE IF NOT EXISTS users (
   first_name TEXT NOT NULL,
   last_name TEXT NOT NULL,
   username TEXT NOT NULL,
+  password_hash TEXT NOT NULL DEFAULT '',
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   UNIQUE (LOWER(email)),
   UNIQUE (LOWER(username))
 );
+
+ALTER TABLE users ADD COLUMN IF NOT EXISTS password_hash TEXT NOT NULL DEFAULT '';
+
+CREATE TABLE IF NOT EXISTS sessions (
+  id BIGSERIAL PRIMARY KEY,
+  user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  token_hash TEXT NOT NULL UNIQUE,
+  expires_at TIMESTAMPTZ NOT NULL,
+  revoked_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_sessions_user ON sessions(user_id);
+CREATE INDEX IF NOT EXISTS idx_sessions_active ON sessions(token_hash, expires_at);
 
 CREATE TABLE IF NOT EXISTS email_codes (
   id BIGSERIAL PRIMARY KEY,
@@ -61,7 +76,5 @@ CREATE TABLE IF NOT EXISTS withdrawal_requests (
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE INDEX IF NOT EXISTS idx_withdrawals_user_day
-  ON withdrawal_requests(user_id, created_at);
-CREATE INDEX IF NOT EXISTS idx_ledger_user_created
-  ON wallet_ledger(user_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_withdrawals_user_day ON withdrawal_requests(user_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_ledger_user_created ON wallet_ledger(user_id, created_at);
