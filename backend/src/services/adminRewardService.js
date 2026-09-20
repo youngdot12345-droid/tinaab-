@@ -92,24 +92,29 @@ export async function reviewRewardClaim(claimId, reviewerId, decision, rejection
     const amountKobo = rewardToKobo(Math.floor(Number(claim.server_amount_kobo) / 100));
     const reference = "reward_claim_" + claim.id;
 
-    const ledger = await client.query(
-      `INSERT INTO wallet_ledger
-         (user_id,type,amount_kobo,reference,status,metadata)
-       VALUES ($1,'reward_credit',$2,$3,'posted',$4::jsonb)
-       ON CONFLICT (reference) DO NOTHING
-       RETURNING id`,
-      [
-        claim.user_id,
-        amountKobo,
-        reference,
-        JSON.stringify({ rewardClaimId: claim.id, activityType: claim.activity_type })
-      ]
+    const existingLedger = await client.query(
+      "SELECT id FROM wallet_ledger WHERE reference=$1 LIMIT 1",
+      [reference]
     );
 
-    await client.query(
-      "UPDATE wallet_accounts SET available_kobo=available_kobo+$1, updated_at=NOW() WHERE user_id=$2",
-      [amountKobo, claim.user_id]
-    );
+    if (!existingLedger.rowCount) {
+      await client.query(
+        `INSERT INTO wallet_ledger
+           (user_id,type,amount_kobo,reference,status,metadata)
+         VALUES ($1,'reward_credit',$2,$3,'posted',$4::jsonb)`,
+        [
+          claim.user_id,
+          amountKobo,
+          reference,
+          JSON.stringify({ rewardClaimId: claim.id, activityType: claim.activity_type })
+        ]
+      );
+
+      await client.query(
+        "UPDATE wallet_accounts SET available_kobo=available_kobo+$1, updated_at=NOW() WHERE user_id=$2",
+        [amountKobo, claim.user_id]
+      );
+    }
 
     const updated = await client.query(
       "UPDATE reward_claims SET status='approved', reviewed_at=NOW(), reviewed_by=$1 WHERE id=$2 RETURNING id,status,reviewed_at",
@@ -119,7 +124,7 @@ export async function reviewRewardClaim(claimId, reviewerId, decision, rejection
     await writeAudit(client, reviewerId, "reward_claim_approved", "reward_claim", claim.id, {
       userId: claim.user_id,
       amountKobo,
-      ledgerCreated: Boolean(ledger.rowCount)
+      ledgerCreated: !existingLedger.rowCount
     });
 
     await client.query("COMMIT");
