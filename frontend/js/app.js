@@ -123,7 +123,7 @@ document.addEventListener("click",async e=>{
  if(e.target.closest("#saveBank")){saveBank();return}
  if(e.target.closest("#withdrawBtn")){withdraw();return}
  const defaultBank=e.target.closest("[data-default-bank]");if(defaultBank){try{await TinaabAPI.post("/api/bank-accounts/"+defaultBank.dataset.defaultBank+"/default");toast("Default bank updated");await loadWallet();walletView()}catch(err){toast(err.message)}return}
- const like=e.target.closest(".like");if(like){const p=state.posts[Number(like.dataset.i)];if(!state.user){toast("Log in to like posts.");return}try{const liked=!state.liked.has(p.id);const r=await TinaabAPI.post("/api/posts/"+p.id+"/like",{});if(liked)state.liked.add(p.id);else state.liked.delete(p.id);p.likes=Number(r.likesCount??p.likes);renderFeed()}catch(err){toast(err.message)}return}
+ const like=e.target.closest(".like");if(like){const p=state.posts[Number(like.dataset.i)];if(!state.user){toast("Log in to like posts.");return}try{const liked=!state.liked.has(p.id);const r=liked?await TinaabAPI.del("/api/posts/"+p.id+"/like"):await TinaabAPI.post("/api/posts/"+p.id+"/like",{});if(liked)state.liked.delete(p.id);else state.liked.add(p.id);p.likes=Number(r.likesCount??p.likes);renderFeed()}catch(err){toast(err.message)}return}
  if(e.target.closest("#createBtn")){createView();return;}
  if(e.target.closest("#searchBtn"))toast("Search is next.");
  if(e.target.closest("#notifyBtn")){notificationsView();return;}
