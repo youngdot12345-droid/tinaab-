@@ -78,3 +78,26 @@ CREATE TABLE IF NOT EXISTS withdrawal_requests (
 
 CREATE INDEX IF NOT EXISTS idx_withdrawals_user_day ON withdrawal_requests(user_id, created_at);
 CREATE INDEX IF NOT EXISTS idx_ledger_user_created ON wallet_ledger(user_id, created_at);
+
+
+-- Administrative review and audit foundation.
+ALTER TABLE users ADD COLUMN IF NOT EXISTS role TEXT NOT NULL DEFAULT 'user';
+ALTER TABLE reward_claims ADD COLUMN IF NOT EXISTS reviewed_at TIMESTAMPTZ;
+ALTER TABLE reward_claims ADD COLUMN IF NOT EXISTS reviewed_by BIGINT REFERENCES users(id);
+ALTER TABLE reward_claims ADD COLUMN IF NOT EXISTS rejection_reason TEXT;
+
+CREATE INDEX IF NOT EXISTS idx_reward_claims_status_created
+  ON reward_claims(status, created_at);
+
+CREATE TABLE IF NOT EXISTS audit_logs (
+  id BIGSERIAL PRIMARY KEY,
+  actor_user_id BIGINT REFERENCES users(id) ON DELETE SET NULL,
+  action TEXT NOT NULL,
+  target_type TEXT NOT NULL,
+  target_id TEXT,
+  metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_audit_logs_created ON audit_logs(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_audit_logs_actor ON audit_logs(actor_user_id, created_at DESC);
