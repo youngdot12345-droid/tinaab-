@@ -3,6 +3,8 @@ import helmet from "helmet";
 import rateLimit from "express-rate-limit";
 import pg from "pg";
 import { registerRoutes } from "./routes.js";
+import { registerPaymentRoutes } from "./paymentRoutes.js";
+import { registerPaymentWebhookRoutes } from "./paymentWebhookRoutes.js";
 
 const { Pool } = pg;
 const app = express();
@@ -11,7 +13,10 @@ const pool = process.env.DATABASE_URL ? new Pool({ connectionString: process.env
 
 app.disable("x-powered-by");
 app.use(helmet());
-app.use(express.json({ limit: "1mb" }));
+app.use(express.json({
+  limit: "1mb",
+  verify: (req, _res, buffer) => { req.rawBody = Buffer.from(buffer); }
+}));
 app.use(rateLimit({ windowMs: 60_000, limit: 120, standardHeaders: true, legacyHeaders: false }));
 
 const CONTACT_EMAIL = process.env.CONTACT_EMAIL || "youngdots12345@gmail.com";
