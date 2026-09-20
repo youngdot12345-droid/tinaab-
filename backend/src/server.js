@@ -3,8 +3,6 @@ import helmet from "helmet";
 import rateLimit from "express-rate-limit";
 import pg from "pg";
 import { registerRoutes } from "./routes.js";
-import { registerPaymentRoutes } from "./paymentRoutes.js";
-import { registerPaymentWebhookRoutes } from "./paymentWebhookRoutes.js";
 
 const { Pool } = pg;
 const app = express();
@@ -13,10 +11,7 @@ const pool = process.env.DATABASE_URL ? new Pool({ connectionString: process.env
 
 app.disable("x-powered-by");
 app.use(helmet());
-app.use(express.json({
-  limit: "1mb",
-  verify: (req, _res, buffer) => { req.rawBody = Buffer.from(buffer); }
-}));
+app.use(express.json({ limit: "1mb" }));
 app.use(rateLimit({ windowMs: 60_000, limit: 120, standardHeaders: true, legacyHeaders: false }));
 
 const CONTACT_EMAIL = process.env.CONTACT_EMAIL || "youngdots12345@gmail.com";
@@ -28,10 +23,8 @@ app.get("/api/health", (_req, res) => {
 app.get("/api/config", (_req, res) => {
   res.json({
     contactEmail: CONTACT_EMAIL,
-    payment: {
-      provider: process.env.PAYMENT_PROVIDER || "paystack",
-      configured: Boolean(process.env.PAYSTACK_SECRET_KEY)
-    }
+    wallet: { withdrawalsPerCalendarDay: 2, currency: "NGN", bankAccountsEnabled: true },
+    payout: { providerConfigured: Boolean(process.env.PAYOUT_PROVIDER) }
   });
 });
 
@@ -65,18 +58,6 @@ app.post("/api/contact", async (req, res) => {
 // This keeps authentication, profiles and social features connected to the server.
 registerRoutes(app);
 
-// Payment gateway placeholder.
-// No Paystack/payment-provider API call is made until credentials are configured.
-// Keep secret keys server-side only.
-app.post("/api/payments/initialize", (_req, res) => {
-  if (!process.env.PAYSTACK_SECRET_KEY) {
-    return res.status(503).json({
-      error: "Payment gateway is not configured yet.",
-      provider: process.env.PAYMENT_PROVIDER || "paystack"
-    });
-  }
-  return res.status(501).json({ error: "Payment adapter placeholder ready for implementation." });
-});
 
 app.use((error, _req, res, _next) => {
   console.error("Tinaab API error:", error);
