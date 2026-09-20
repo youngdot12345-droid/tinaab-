@@ -3,6 +3,7 @@ import { canFollow, validateCaption, validateMessage } from "./services/socialRu
 import { canWithdrawToday, validateWithdrawalAmount } from "./services/withdrawalPolicy.js";
 import { registerAuthRoutes } from "./authRoutes.js";
 import { registerProfileRoutes } from "./profileRoutes.js";
+import { registerPostRoutes } from "./postRoutes.js";
 
 export function registerRoutes(app) {
   app.get("/api/health", (_req, res) => res.json({ ok: true, service: "tinaab-api" }));
@@ -46,4 +47,5 @@ export function registerRoutes(app) {
 
   registerAuthRoutes(app);
   registerProfileRoutes(app);
+  registerPostRoutes(app);
 }
