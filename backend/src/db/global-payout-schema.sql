@@ -1,10 +1,11 @@
 -- Tinaab global withdrawal destinations.
 -- Provider integrations must validate country, identity, currency and eligibility
 -- before any real payout is submitted.
+-- Supported destination providers: bank, PayPal, and Stripe Global Payouts.
 CREATE TABLE IF NOT EXISTS global_payout_destinations (
   id BIGSERIAL PRIMARY KEY,
   user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  provider TEXT NOT NULL CHECK (provider IN ('paypal', 'crypto', 'bank')),
+  provider TEXT NOT NULL CHECK (provider IN ('paypal', 'stripe', 'bank')),
   country_code TEXT NOT NULL CHECK (country_code ~ '^[A-Z]{2}$'),
   currency_code TEXT NOT NULL CHECK (currency_code ~ '^[A-Z]{3}$'),
   label TEXT NOT NULL,
@@ -19,6 +20,27 @@ CREATE TABLE IF NOT EXISTS global_payout_destinations (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   UNIQUE (user_id, provider, destination_hash)
 );
+
+-- Upgrade existing installations from the previous crypto-enabled constraint.
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conname = 'global_payout_destinations_provider_check'
+      AND conrelid = 'global_payout_destinations'::regclass
+  ) THEN
+    ALTER TABLE global_payout_destinations
+      DROP CONSTRAINT global_payout_destinations_provider_check;
+  END IF;
+END $$;
+
+UPDATE global_payout_destinations
+SET status = 'disabled'
+WHERE provider = 'crypto' AND status <> 'disabled';
+
+ALTER TABLE global_payout_destinations
+  ADD CONSTRAINT global_payout_destinations_provider_check
+  CHECK (provider IN ('paypal', 'stripe', 'bank'));
 
 CREATE INDEX IF NOT EXISTS idx_global_payout_destinations_user_status
   ON global_payout_destinations(user_id, status);
