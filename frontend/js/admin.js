@@ -5,6 +5,7 @@
   const usersOutput=$('usersOutput');
   const reviewsOutput=$('reviewsOutput');
   const withdrawalsOutput=$('withdrawalsOutput');
+  const auditOutput=$('auditOutput');
   const search=$('userSearch');
   let offset=0;
   const limit=50;
@@ -19,6 +20,10 @@
     if(!items.length){withdrawalsOutput.textContent='No pending withdrawals.';return;}
     withdrawalsOutput.innerHTML='<table class="admin-table"><thead><tr><th>ID</th><th>User</th><th>Amount</th><th>Status</th><th>Created</th></tr></thead><tbody>'+items.map(item=>'<tr><td>'+escapeHtml(item.id||item.withdrawal_id||'—')+'</td><td>'+escapeHtml(item.username||item.user_id||'—')+'</td><td>'+escapeHtml(item.amount_kobo!=null?('₦'+(Number(item.amount_kobo)/100).toLocaleString('en-NG',{maximumFractionDigits:2})):'—')+'</td><td>'+escapeHtml(item.status||'pending')+'</td><td>'+escapeHtml(item.created_at||'—')+'</td></tr>').join('')+'</tbody></table>';
   }
+  function renderAuditLogs(items){
+    if(!items.length){auditOutput.textContent='No audit events found.';return;}
+    auditOutput.innerHTML='<table class="admin-table"><thead><tr><th>ID</th><th>Actor</th><th>Action</th><th>Target</th><th>Created</th></tr></thead><tbody>'+items.map(item=>'<tr><td>'+escapeHtml(item.id)+'</td><td>'+escapeHtml(item.actor_username||'system')+'</td><td>'+escapeHtml(item.action)+'</td><td>'+escapeHtml((item.target_type||'')+(item.target_id?' #'+item.target_id:''))+'</td><td>'+escapeHtml(item.created_at||'—')+'</td></tr>').join('')+'</tbody></table>';
+  }
   function renderReviews(items){
     if(!items.length){reviewsOutput.textContent='No pending reviews.';return;}
     reviewsOutput.innerHTML='<ul>'+items.map(item=>'<li>Review #'+escapeHtml(item.id||item.claim_id||'—')+' — '+escapeHtml(item.status||'pending')+'</li>').join('')+'</ul>';
@@ -31,10 +36,11 @@
   async function load(){
     showStatus('Checking administrator access…');
     try{
-      const [overview,reviews,withdrawals]=await Promise.all([
+      const [overview,reviews,withdrawals,auditLogs]=await Promise.all([
         TinaabAPI.get('/api/admin/overview'),
         TinaabAPI.get('/api/admin/rewards/pending?limit=50'),
-        TinaabAPI.get('/api/admin/withdrawals/pending?limit=50')
+        TinaabAPI.get('/api/admin/withdrawals/pending?limit=50'),
+        TinaabAPI.get('/api/admin/audit-logs?limit=50')
       ]);
       const stats=overview.stats||overview;
       $('totalUsers').textContent=stats.totalUsers??'—';
@@ -46,6 +52,7 @@
       $('pendingWithdrawals').textContent=stats.pendingWithdrawals??((withdrawals.withdrawals||withdrawals.items||[]).length);
       renderReviews(reviewItems);
       renderWithdrawals(withdrawals.withdrawals||withdrawals.items||[]);
+      renderAuditLogs(auditLogs.logs||auditLogs.items||[]);
       offset=0;
       await loadUsers();
       showStatus('Administrator access confirmed.');
@@ -54,6 +61,7 @@
       usersOutput.textContent='User data unavailable.';
       reviewsOutput.textContent='Review data unavailable.';
       withdrawalsOutput.textContent='Withdrawal data unavailable.';
+      auditOutput.textContent='Audit data unavailable.';
     }
   }
   $('adminRefresh').addEventListener('click',load);
