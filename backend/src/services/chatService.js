@@ -60,9 +60,12 @@ export async function listMessages(userId, conversationId, limit=50, beforeId=nu
   if(!Number.isSafeInteger(id)||id<=0) return {ok:false,reason:"Invalid conversation."};
   if(!await requireMember(db,userId,id)) return {ok:false,reason:"Conversation not found."};
   const safeLimit=Math.min(Math.max(Number(limit)||50,1),100);
+  const hasBefore=beforeId!==null&&beforeId!==undefined&&String(beforeId).trim()!=="";
+  const parsedBefore=hasBefore?Number(beforeId):null;
+  if(hasBefore&&(!Number.isSafeInteger(parsedBefore)||parsedBefore<=0)) return {ok:false,reason:"Invalid pagination cursor."};
   const values=[id,safeLimit];
-  const clause=beforeId?"AND m.id < $3":"";
-  if(beforeId) values.push(Number(beforeId));
+  const clause=hasBefore?"AND m.id < $3":"";
+  if(hasBefore) values.push(parsedBefore);
   const result=await db.query(
     `SELECT m.id,m.conversation_id,m.sender_id,m.body,m.created_at,m.read_at,
             u.username,u.first_name,u.last_name
