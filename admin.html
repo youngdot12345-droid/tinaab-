@@ -33,6 +33,8 @@ body{background:#0b0b0d;color:#fff;font-family:system-ui,sans-serif;margin:0}
 <div class="admin-card">Verified users<strong id="verifiedUsers">—</strong></div>
 <div class="admin-card">Recent users<strong id="recentUsers">—</strong></div>
 <div class="admin-card">Pending reviews<strong id="pendingReviews">—</strong></div>
+<div class="admin-card">Total posts<strong id="totalPosts">—</strong></div>
+<div class="admin-card">Pending withdrawals<strong id="pendingWithdrawals">—</strong></div>
 </section>
 <section class="admin-panel">
 <h2>User directory</h2>
@@ -41,8 +43,13 @@ body{background:#0b0b0d;color:#fff;font-family:system-ui,sans-serif;margin:0}
 <div id="usersOutput" class="admin-muted">Loading users…</div>
 </section>
 <section class="admin-panel">
-<h2>Review queue</h2>
+<h2>Reward review queue</h2>
 <div id="reviewsOutput" class="admin-muted">Loading pending reviews…</div>
+</section>
+<section class="admin-panel">
+<h2>Withdrawal queue</h2>
+<p class="admin-muted">Withdrawal records shown here should contain only operational fields needed for reconciliation.</p>
+<div id="withdrawalsOutput" class="admin-muted">Loading pending withdrawals…</div>
 </section>
 </main>
 <script src="frontend/js/api.js"></script>
