@@ -39,7 +39,8 @@ export async function getPublicFeed(limit = 20, cursor = null, viewerId = null) 
             (SELECT COUNT(*) FROM comments c WHERE c.post_id = p.id) AS comments_count,
             (SELECT COUNT(*) FROM reposts r WHERE r.post_id = p.id) AS reposts_count,
             CASE WHEN $3::bigint IS NULL THEN false ELSE EXISTS (SELECT 1 FROM post_likes vl WHERE vl.post_id = p.id AND vl.user_id = $3) END AS viewer_liked,
-            CASE WHEN $3::bigint IS NULL THEN false ELSE EXISTS (SELECT 1 FROM reposts vr WHERE vr.post_id = p.id AND vr.user_id = $3) END AS viewer_reposted
+            CASE WHEN $3::bigint IS NULL THEN false ELSE EXISTS (SELECT 1 FROM reposts vr WHERE vr.post_id = p.id AND vr.user_id = $3) END AS viewer_reposted,
+            CASE WHEN $3::bigint IS NULL THEN false ELSE EXISTS (SELECT 1 FROM follows vf WHERE vf.follower_id = $3 AND vf.following_id = p.user_id) END AS viewer_following
        FROM posts p
        JOIN users u ON u.id = p.user_id
        ${cursorClause}
