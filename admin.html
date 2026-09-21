@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#000">
+<title>Tinaab Admin Dashboard</title>
+<link rel="stylesheet" href="frontend/css/style.css">
+<style>
+body{background:#0b0b0d;color:#fff;font-family:system-ui,sans-serif;margin:0}
+.admin-wrap{max-width:1200px;margin:0 auto;padding:24px}
+.admin-head{display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap}
+.admin-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px;margin:24px 0}
+.admin-card{background:#17171c;border:1px solid #2b2b33;border-radius:14px;padding:18px}
+.admin-card strong{display:block;font-size:1.7rem;margin-top:8px}
+.admin-panel{background:#121217;border:1px solid #2b2b33;border-radius:14px;padding:18px;margin:18px 0;overflow:auto}
+.admin-table{width:100%;border-collapse:collapse;min-width:680px}
+.admin-table th,.admin-table td{text-align:left;padding:12px;border-bottom:1px solid #2b2b33}
+.admin-muted{color:#aaa}
+.admin-error{color:#ff9b9b}
+.admin-input{background:#09090b;color:#fff;border:1px solid #444;border-radius:8px;padding:10px;max-width:320px;width:100%}
+</style>
+</head>
+<body>
+<main class="admin-wrap">
+<header class="admin-head">
+<div><h1>Tinaab Admin</h1><p class="admin-muted">Authorized platform administration only</p></div>
+<button id="adminRefresh" class="primary">Refresh</button>
+</header>
+<section id="adminStatus" class="admin-panel">Checking administrator access…</section>
+<section class="admin-grid" aria-label="Platform overview">
+<div class="admin-card">Total users<strong id="totalUsers">—</strong></div>
+<div class="admin-card">Verified users<strong id="verifiedUsers">—</strong></div>
+<div class="admin-card">Recent users<strong id="recentUsers">—</strong></div>
+<div class="admin-card">Pending reviews<strong id="pendingReviews">—</strong></div>
+</section>
+<section class="admin-panel">
+<h2>User directory</h2>
+<p class="admin-muted">Only safe account fields should be displayed. Passwords, tokens, private messages, and bank details are never shown here.</p>
+<input id="userSearch" class="admin-input" placeholder="Search username or name" autocomplete="off">
+<div id="usersOutput" class="admin-muted">Loading users…</div>
+</section>
+<section class="admin-panel">
+<h2>Review queue</h2>
+<div id="reviewsOutput" class="admin-muted">Loading pending reviews…</div>
+</section>
+</main>
+<script src="frontend/js/api.js"></script>
+<script src="frontend/js/admin.js"></script>
+</body>
+</html>
