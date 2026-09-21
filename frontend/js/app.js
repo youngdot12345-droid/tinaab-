@@ -18,7 +18,7 @@ function renderFeed(){
      <button class="action" data-action="comment"><span>○</span><small>${p.comments}</small></button>
      <button class="action" data-action="share"><span>↗</span><small>Share</small></button>
      <button class="action" data-action="repost"><span>${p.reposted?"✓":"⟳"}</span><small>${p.shares}</small></button>
-     <button class="action follow-action" data-action="follow" state.user&&Number(p.ownerId)===Number(state.user.id)?'disabled':''><span>p.following?'✓':'＋'</span><small>p.following?'Following':'Follow'</small></button>
+     <button class="action follow-action" data-action="follow" ${state.user&&Number(p.ownerId)===Number(state.user.id)?'disabled':''}><span>${p.following?'✓':'＋'}</span><small>${p.following?'Following':'Follow'}</small></button>
    </div>
  </article>`).join("")+'</section>';
 }
