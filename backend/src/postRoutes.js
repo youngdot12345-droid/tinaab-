@@ -18,7 +18,8 @@ async function requireUser(req, res) {
 export function registerPostRoutes(app) {
   app.get("/api/feed/public", async (req, res, next) => {
     try {
-      res.json(await getPublicFeed(req.query.limit, req.query.cursor));
+      const viewer = await getUserFromToken(readBearerToken(req));
+      res.json(await getPublicFeed(req.query.limit, req.query.cursor, viewer?.id || null));
     } catch (error) { next(error); }
   });
 
