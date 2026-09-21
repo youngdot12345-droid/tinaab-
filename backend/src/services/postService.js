@@ -115,3 +115,53 @@ export async function setPostLike(userId, postId, liked) {
     client.release();
   }
 }
+
+
+export async function submitPostShare(userId, postId) {
+  const db = requireDatabase();
+  const client = await db.connect();
+
+  try {
+    await client.query("BEGIN");
+
+    const post = await client.query(
+      "SELECT id,user_id FROM posts WHERE id=$1 AND visibility='public' FOR SHARE",
+      [postId]
+    );
+    if (!post.rowCount) {
+      await client.query("ROLLBACK");
+      return { ok: false, reason: "Post not found." };
+    }
+
+    if (Number(post.rows[0].user_id) === Number(userId)) {
+      await client.query("ROLLBACK");
+      return { ok: true, rewarded: false, message: "Your own post does not earn a share reward." };
+    }
+
+    const reward = calculateReward("verified_share");
+    const activityReference = `share:${postId}:${userId}`;
+    const claim = await client.query(
+      `INSERT INTO reward_claims
+         (user_id,activity_type,server_amount_kobo,activity_reference,status)
+       VALUES ($1,'verified_share',$2,$3,'pending')
+       ON CONFLICT (user_id,activity_reference) DO NOTHING
+       RETURNING id,status`,
+      [post.rows[0].user_id, reward.amount * 100, activityReference]
+    );
+
+    await client.query("COMMIT");
+    return {
+      ok: true,
+      rewarded: claim.rowCount > 0,
+      rewardStatus: claim.rows[0]?.status || "pending",
+      message: claim.rowCount > 0
+        ? "Share submitted for server verification."
+        : "This share has already been submitted."
+    };
+  } catch (error) {
+    await client.query("ROLLBACK");
+    throw error;
+  } finally {
+    client.release();
+  }
+}
