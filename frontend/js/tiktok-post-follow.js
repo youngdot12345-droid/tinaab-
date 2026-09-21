@@ -4,7 +4,7 @@
   const PROFILE_SELECTOR = ".post .post-info";
   const loaded = new Map();
 
-  function api(){ return window.TinaabAPI; }
+  function api(){ return window.TinaabAPI || null; }
   function toast(message){ if(typeof window.toast === "function") window.toast(message); }
   function usernameFrom(info){
     const link = info.querySelector("[data-username]");
@@ -12,10 +12,28 @@
   }
 
   async function loadProfile(username){
+    const client = api();
+    if(!client || typeof client.get !== "function") throw new Error("Tinaab API is not ready yet.");
     if(loaded.has(username)) return loaded.get(username);
-    const promise = api().get("/api/profiles/" + encodeURIComponent(username));
+    const promise = client.get("/api/profiles/" + encodeURIComponent(username));
     loaded.set(username, promise);
-    return promise;
+    try{
+      return await promise;
+    }catch(error){
+      loaded.delete(username);
+      throw error;
+    }
+  }
+
+  function readProfile(response){
+    return response && (response.profile || response.user || response);
+  }
+
+  function setButtonState(button, username, following){
+    button.dataset.following = String(Boolean(following));
+    button.textContent = following ? "✓ Following" : "＋ Follow";
+    button.classList.toggle("is-following", Boolean(following));
+    button.setAttribute("aria-label", following ? "Unfollow @" + username : "Follow @" + username);
   }
 
   function addFollowButton(info){
@@ -37,21 +55,20 @@
 
       try{
         const profileResponse = await loadProfile(username);
-        const profile = profileResponse.profile || profileResponse.user || profileResponse;
-        const userId = Number(profile.id || profile.user_id);
+        const profile = readProfile(profileResponse);
+        const userId = Number(profile && (profile.id || profile.user_id));
         if(!userId) throw new Error("This profile is not available yet.");
 
-        const following = Boolean(profile.viewer_following || profile.is_following || button.dataset.following === "true");
+        const following = button.dataset.following === "true";
+        const client = api();
+        if(!client) throw new Error("Tinaab API is not ready yet.");
         const response = following
-          ? await api().del("/api/users/" + userId + "/follow")
-          : await api().post("/api/users/" + userId + "/follow", {});
+          ? await client.del("/api/users/" + userId + "/follow")
+          : await client.post("/api/users/" + userId + "/follow", {});
         if(response && response.ok === false) throw new Error(response.reason || "Could not update follow status.");
 
         const nextFollowing = !following;
-        button.dataset.following = String(nextFollowing);
-        button.textContent = nextFollowing ? "✓ Following" : "＋ Follow";
-        button.classList.toggle("is-following", nextFollowing);
-        button.setAttribute("aria-label", nextFollowing ? "Unfollow @" + username : "Follow @" + username);
+        setButtonState(button, username, nextFollowing);
         toast(nextFollowing ? "Following @" + username : "Unfollowed @" + username);
       }catch(error){
         toast(error.message || "Could not update follow status.");
@@ -62,11 +79,8 @@
 
     info.appendChild(button);
     loadProfile(username).then(function(response){
-      const profile = response.profile || response.user || response;
-      const following = Boolean(profile.viewer_following || profile.is_following);
-      button.dataset.following = String(following);
-      button.textContent = following ? "✓ Following" : "＋ Follow";
-      button.classList.toggle("is-following", following);
+      const profile = readProfile(response) || {};
+      setButtonState(button, username, Boolean(profile.viewer_following || profile.is_following));
     }).catch(function(){ /* The button remains available for a later tap. */ });
   }
 
