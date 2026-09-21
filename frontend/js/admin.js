@@ -26,7 +26,15 @@
   }
   function renderReviews(items){
     if(!items.length){reviewsOutput.textContent='No pending reviews.';return;}
-    reviewsOutput.innerHTML='<ul>'+items.map(item=>'<li>Review #'+escapeHtml(item.id||item.claim_id||'—')+' — '+escapeHtml(item.status||'pending')+'</li>').join('')+'</ul>';
+    reviewsOutput.innerHTML='<table class="admin-table"><thead><tr><th>ID</th><th>User</th><th>Activity</th><th>Amount</th><th>Status</th><th>Action</th></tr></thead><tbody>'+items.map(item=>'<tr><td>'+escapeHtml(item.id||'—')+'</td><td>'+escapeHtml(item.username||item.user_id||'—')+'</td><td>'+escapeHtml(item.activity_type||'—')+'</td><td>'+escapeHtml(item.server_amount_kobo!=null?('₦'+(Number(item.server_amount_kobo)/100).toLocaleString('en-NG',{maximumFractionDigits:2})):'—')+'</td><td>'+escapeHtml(item.status||'pending')+'</td><td><button class="admin-approve" data-claim-id="'+escapeHtml(item.id)+'">Approve</button> <button class="admin-reject" data-claim-id="'+escapeHtml(item.id)+'">Reject</button></td></tr>').join('')+'</tbody></table>';
+  }
+  async function reviewReward(claimId,decision){
+    const reason=decision==='reject'?window.prompt('Reason for rejecting this reward claim:')||'Claim did not pass verification.':'';
+    try{
+      await TinaabAPI.post('/api/admin/rewards/'+encodeURIComponent(claimId)+'/review',{decision,rejectionReason:reason});
+      showStatus('Reward claim #'+claimId+' '+decision+'d.');
+      await load();
+    }catch(error){showStatus(error.message||'Reward review failed.',true);}
   }
   async function loadUsers(){
     const term=String(search.value||'').trim();
@@ -64,6 +72,11 @@
       auditOutput.textContent='Audit data unavailable.';
     }
   }
+  reviewsOutput.addEventListener('click',function(event){
+    const button=event.target.closest('button[data-claim-id]');
+    if(!button)return;
+    reviewReward(button.dataset.claimId,button.classList.contains('admin-approve')?'approve':'reject');
+  });
   $('adminRefresh').addEventListener('click',load);
   search.addEventListener('input',function(){offset=0;loadUsers().catch(error=>showStatus(error.message||'User search failed.',true));});
   load();
