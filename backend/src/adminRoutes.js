@@ -1,5 +1,6 @@
 import { getUserFromToken } from "./services/authService.js";
 import { isAdmin, listPendingRewardClaims, reviewRewardClaim } from "./services/adminRewardService.js";
+import { getAdminOverview, listAdminUsers } from "./services/adminDashboardService.js";
 
 function readBearerToken(req) {
   const header = String(req.headers.authorization || "");
@@ -20,6 +21,30 @@ async function requireAdmin(req, res) {
 }
 
 export function registerAdminRoutes(app) {
+  app.get("/api/admin/overview", async (req, res, next) => {
+    try {
+      const admin = await requireAdmin(req, res);
+      if (!admin) return;
+      res.json(await getAdminOverview());
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.get("/api/admin/users", async (req, res, next) => {
+    try {
+      const admin = await requireAdmin(req, res);
+      if (!admin) return;
+      res.json(await listAdminUsers({
+        limit: req.query?.limit,
+        offset: req.query?.offset,
+        search: req.query?.search
+      }));
+    } catch (error) {
+      next(error);
+    }
+  });
+
   app.get("/api/admin/rewards/pending", async (req, res, next) => {
     try {
       const admin = await requireAdmin(req, res);
