@@ -8,6 +8,8 @@ export async function getProfileByUsername(username, viewerId = null) {
             u.created_at,
             (SELECT COUNT(*) FROM follows f WHERE f.following_id = u.id) AS followers_count,
             (SELECT COUNT(*) FROM follows f WHERE f.follower_id = u.id) AS following_count,
+            (SELECT COUNT(*) FROM post_likes pl JOIN posts p ON p.id = pl.post_id WHERE p.user_id = u.id) AS likes_count,
+            (SELECT COUNT(*) FROM reposts r JOIN posts p ON p.id = r.post_id WHERE p.user_id = u.id) AS reposts_count,
             CASE WHEN $2::bigint IS NULL THEN false
                  ELSE EXISTS (SELECT 1 FROM follows vf WHERE vf.follower_id = $2 AND vf.following_id = u.id)
             END AS is_following
