@@ -69,7 +69,10 @@ export async function getFollowingFeed(userId, limit = 20, cursor = null) {
     `SELECT p.id, p.user_id, p.caption, p.media_url, p.media_type, p.created_at,
             u.username, u.first_name, u.last_name,
             (SELECT COUNT(*) FROM post_likes pl WHERE pl.post_id = p.id) AS likes_count,
-            (SELECT COUNT(*) FROM comments c WHERE c.post_id = p.id) AS comments_count
+            (SELECT COUNT(*) FROM comments c WHERE c.post_id = p.id) AS comments_count,
+            (SELECT COUNT(*) FROM reposts r WHERE r.post_id = p.id) AS reposts_count,
+            EXISTS (SELECT 1 FROM post_likes vl WHERE vl.post_id = p.id AND vl.user_id = $1) AS viewer_liked,
+            EXISTS (SELECT 1 FROM reposts vr WHERE vr.post_id = p.id AND vr.user_id = $1) AS viewer_reposted
        FROM posts p
        JOIN users u ON u.id = p.user_id
        JOIN follows f ON f.following_id = p.user_id AND f.follower_id = $1
