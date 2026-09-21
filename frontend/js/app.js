@@ -146,7 +146,11 @@ let searchTimer;document.addEventListener("input",e=>{if(e.target.id!=="userSear
  if(e.target.closest("#searchBtn")){searchView();return;}
  if(e.target.closest("#notifyBtn")){notificationsView();return;}
  if(e.target.closest("#notifyLogin")||e.target.closest("#createLogin")){state.authMode="login";showAuth();return}
- if(e.target.closest("#publishPost")){publishPost();return}\n if(e.target.closest("#cancelCreate")){showView("home");return}\n if(e.target.closest("#sendComment")){sendComment(e.target.closest("#sendComment").dataset.postId);return}\n if(e.target.closest("#cancelComment")){showView("home");return}\n if(e.target.closest("#readNotifications")){try{await TinaabAPI.post("/api/notifications/read",{});toast("Notifications marked read");notificationsView()}catch(err){toast(err.message)}return}
+ if(e.target.closest("#publishPost")){publishPost();return}
+ if(e.target.closest("#cancelCreate")){showView("home");return}
+ if(e.target.closest("#sendComment")){sendComment(e.target.closest("#sendComment").dataset.postId);return}
+ if(e.target.closest("#cancelComment")){showView("home");return}
+ if(e.target.closest("#readNotifications")){try{await TinaabAPI.post("/api/notifications/read",{});toast("Notifications marked read");notificationsView()}catch(err){toast(err.message)}return}
  if(e.target.closest("[data-action=\"comment\"]")){const article=e.target.closest(".post");const i=[...document.querySelectorAll(".post")].indexOf(article);if(i>=0)commentPost(state.posts[i].id);return}
  if(e.target.closest("[data-action=\"follow\"]")){const article=e.target.closest(".post");const i=[...document.querySelectorAll(".post")].indexOf(article);if(i>=0)openProfile(String(state.posts[i].user).replace(/^@/,""));return} if(e.target.closest("[data-action=\"repost\"]")){const article=e.target.closest(".post");const i=[...document.querySelectorAll(".post")].indexOf(article);if(i>=0)repostPost(state.posts[i].id);return}
  if(e.target.closest("#logoutBtn")){await TinaabAPI.logout();state.user=null;state.wallet=null;state.banks=[];toast("Logged out");showView("home")}
