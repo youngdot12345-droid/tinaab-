@@ -24,11 +24,10 @@ export async function createPost(userId, input = {}) {
 export async function getPublicFeed(limit = 20, cursor = null, viewerId = null) {
   const pool = requireDatabase();
   const safeLimit = Math.min(Math.max(Number(limit) || 20, 1), 50);
-  const values = [safeLimit, viewerId];
+  const values = [safeLimit, cursor || null, viewerId];
   let cursorClause = "";
 
   if (cursor) {
-    values[0] = safeLimit;
     values[1] = cursor;
     cursorClause = "WHERE p.created_at < $2";
   }
