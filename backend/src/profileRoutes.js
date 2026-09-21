@@ -1,5 +1,5 @@
 import { getUserFromToken } from "./services/authService.js";
-import { followUser, getFollowingFeed, getProfileByUsername, searchUsers, unfollowUser } from "./services/profileService.js";
+import { followUser, getFollowingFeed, getProfileByUsername, getUserPosts, searchUsers, unfollowUser } from "./services/profileService.js";
 
 function readBearerToken(req) {
   const header = String(req.headers.authorization || "");
@@ -29,6 +29,16 @@ export function registerProfileRoutes(app) {
       const profile = await getProfileByUsername(req.params.username, viewer?.id || null);
       if (!profile) return res.status(404).json({ ok: false, reason: "Profile not found." });
       res.json({ ok: true, profile });
+    } catch (error) { next(error); }
+  });
+
+  app.get("/api/profiles/:username/posts", async (req, res, next) => {
+    try {
+      const viewer = await getUserFromToken(readBearerToken(req));
+      const profile = await getProfileByUsername(req.params.username, viewer?.id || null);
+      if (!profile) return res.status(404).json({ ok: false, reason: "Profile not found." });
+      const posts = await getUserPosts(profile.id, viewer?.id || null, req.query.limit);
+      res.json({ ok: true, posts });
     } catch (error) { next(error); }
   });
 
