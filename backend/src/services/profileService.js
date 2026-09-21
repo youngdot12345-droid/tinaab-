@@ -86,7 +86,6 @@ export async function getFollowingFeed(userId, limit = 20, cursor = null) {
   return { ok: true, posts: result.rows };
 }
 
-
 export async function searchUsers(query, limit = 20) {
   const pool = requireDatabase();
   const q = String(query || "").trim();
@@ -105,18 +104,20 @@ export async function searchUsers(query, limit = 20) {
   return result.rows;
 }
 
-
 export async function getUserPosts(userId, viewerId = null, limit = 30) {
   const pool = requireDatabase();
   const safeLimit = Math.min(Math.max(Number(limit) || 30, 1), 50);
   const result = await pool.query(
     `SELECT p.id, p.user_id, p.caption, p.media_url, p.media_type, p.visibility, p.created_at,
+            u.username, u.first_name, u.last_name,
             (SELECT COUNT(*) FROM post_likes pl WHERE pl.post_id = p.id) AS likes_count,
             (SELECT COUNT(*) FROM comments c WHERE c.post_id = p.id) AS comments_count,
             (SELECT COUNT(*) FROM reposts r WHERE r.post_id = p.id) AS reposts_count,
             CASE WHEN $2::bigint IS NULL THEN false ELSE EXISTS (SELECT 1 FROM post_likes vl WHERE vl.post_id = p.id AND vl.user_id = $2) END AS viewer_liked,
-            CASE WHEN $2::bigint IS NULL THEN false ELSE EXISTS (SELECT 1 FROM reposts vr WHERE vr.post_id = p.id AND vr.user_id = $2) END AS viewer_reposted
+            CASE WHEN $2::bigint IS NULL THEN false ELSE EXISTS (SELECT 1 FROM reposts vr WHERE vr.post_id = p.id AND vr.user_id = $2) END AS viewer_reposted,
+            CASE WHEN $2::bigint IS NULL THEN false ELSE EXISTS (SELECT 1 FROM follows vf WHERE vf.follower_id = $2 AND vf.following_id = p.user_id) END AS viewer_following
        FROM posts p
+       JOIN users u ON u.id = p.user_id
       WHERE p.user_id = $1
         AND (p.visibility = 'public' OR $2::bigint = $1)
       ORDER BY p.created_at DESC
