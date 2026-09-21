@@ -1,5 +1,5 @@
 import { getUserFromToken } from "./services/authService.js";
-import { createPost, getPublicFeed, setPostLike } from "./services/postService.js";
+import { createPost, getPublicFeed, setPostLike, submitPostShare } from "./services/postService.js";
 
 function readBearerToken(req) {
   const header = String(req.headers.authorization || "");
@@ -46,6 +46,15 @@ export function registerPostRoutes(app) {
       const user = await requireUser(req, res);
       if (!user) return;
       const result = await setPostLike(user.id, req.params.postId, false);
+      res.status(result.ok ? 200 : 400).json(result);
+    } catch (error) { next(error); }
+  });
+
+  app.post("/api/posts/:postId/share", async (req, res, next) => {
+    try {
+      const user = await requireUser(req, res);
+      if (!user) return;
+      const result = await submitPostShare(user.id, req.params.postId);
       res.status(result.ok ? 200 : 400).json(result);
     } catch (error) { next(error); }
   });
