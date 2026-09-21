@@ -18,7 +18,22 @@
   }
   function renderWithdrawals(items){
     if(!items.length){withdrawalsOutput.textContent='No pending withdrawals.';return;}
-    withdrawalsOutput.innerHTML='<table class="admin-table"><thead><tr><th>ID</th><th>User</th><th>Amount</th><th>Status</th><th>Created</th></tr></thead><tbody>'+items.map(item=>'<tr><td>'+escapeHtml(item.id||item.withdrawal_id||'—')+'</td><td>'+escapeHtml(item.username||item.user_id||'—')+'</td><td>'+escapeHtml(item.amount_kobo!=null?('₦'+(Number(item.amount_kobo)/100).toLocaleString('en-NG',{maximumFractionDigits:2})):'—')+'</td><td>'+escapeHtml(item.status||'pending')+'</td><td>'+escapeHtml(item.created_at||'—')+'</td></tr>').join('')+'</tbody></table>';
+    withdrawalsOutput.innerHTML='<table class="admin-table"><thead><tr><th>ID</th><th>User</th><th>Amount</th><th>Status</th><th>Created</th><th>Action</th></tr></thead><tbody>'+items.map(item=>'<tr><td>'+escapeHtml(item.id||item.withdrawal_id||'—')+'</td><td>'+escapeHtml(item.username||item.user_id||'—')+'</td><td>'+escapeHtml(item.amount_kobo!=null?('₦'+(Number(item.amount_kobo)/100).toLocaleString('en-NG',{maximumFractionDigits:2})):'—')+'</td><td>'+escapeHtml(item.status||'pending')+'</td><td>'+escapeHtml(item.created_at||'—')+'</td><td><button class="admin-paid" data-withdrawal-id="'+escapeHtml(item.id)+'">Mark paid</button> <button class="admin-fail" data-withdrawal-id="'+escapeHtml(item.id)+'">Fail</button></td></tr>').join('')+'</tbody></table>';
+  }
+  async function reconcileWithdrawal(id,decision){
+    let body={decision};
+    if(decision==='success'){
+      const ref=window.prompt('Enter the verified payout provider reference:');
+      if(!ref)return;
+      body.providerReference=ref;
+    }else{
+      body.failureReason=window.prompt('Reason for payout failure:')||'Payout failed.';
+    }
+    try{
+      await TinaabAPI.post('/api/admin/withdrawals/'+encodeURIComponent(id)+'/reconcile',body);
+      showStatus('Withdrawal #'+id+' reconciled.');
+      await load();
+    }catch(error){showStatus(error.message||'Withdrawal reconciliation failed.',true);}
   }
   function renderAuditLogs(items){
     if(!items.length){auditOutput.textContent='No audit events found.';return;}
@@ -72,6 +87,11 @@
       auditOutput.textContent='Audit data unavailable.';
     }
   }
+  withdrawalsOutput.addEventListener('click',function(event){
+    const button=event.target.closest('button[data-withdrawal-id]');
+    if(!button)return;
+    reconcileWithdrawal(button.dataset.withdrawalId,button.classList.contains('admin-paid')?'success':'fail');
+  });
   reviewsOutput.addEventListener('click',function(event){
     const button=event.target.closest('button[data-claim-id]');
     if(!button)return;
