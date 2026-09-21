@@ -6,7 +6,7 @@ import { requireDatabase } from "./db.js";
 const currentFile = fileURLToPath(import.meta.url);
 const dbDirectory = path.dirname(currentFile);
 
-const schemaFiles = ["schema.sql", "social-schema.sql", "migrate.sql"];
+const schemaFiles = ["schema.sql", "social-schema.sql", "migrate.sql", "global-payout-schema.sql"];
 
 async function readSchemas() {
   return Promise.all(
