@@ -34,7 +34,6 @@ export async function reconcileWithdrawal(withdrawalId, actorId, decision, provi
 
   try {
     await client.query("BEGIN");
-
     const result = await client.query(
       `SELECT id,user_id,amount_kobo,fee_kobo,net_kobo,status,provider_reference
          FROM withdrawal_requests
@@ -48,7 +47,6 @@ export async function reconcileWithdrawal(withdrawalId, actorId, decision, provi
       await client.query("ROLLBACK");
       return { ok: false, reason: "Withdrawal not found." };
     }
-
     if (withdrawal.status !== "pending") {
       await client.query("ROLLBACK");
       return { ok: false, reason: "Withdrawal has already been reconciled.", withdrawal };
@@ -65,10 +63,14 @@ export async function reconcileWithdrawal(withdrawalId, actorId, decision, provi
 
     if (decision === "fail") {
       const reason = String(failureReason || "").trim().slice(0, 500) || "Payout failed.";
-      await client.query(
+      const moved = await client.query(
         "UPDATE wallet_accounts SET available_kobo=available_kobo+$1,pending_kobo=pending_kobo-$1,updated_at=NOW() WHERE user_id=$2 AND pending_kobo >= $1",
         [withdrawal.amount_kobo, withdrawal.user_id]
       );
+      if (!moved.rowCount) {
+        await client.query("ROLLBACK");
+        return { ok: false, reason: "Wallet pending balance cannot cover this withdrawal reversal." };
+      }
 
       await client.query(
         `INSERT INTO wallet_ledger
