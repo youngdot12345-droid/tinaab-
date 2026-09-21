@@ -9,6 +9,10 @@
   }[c]));
 
   let previewUser = { firstName: '', username: '', email: '' };
+  let previewLiked = false;
+  let previewFollowing = false;
+  let previewCommentCount = 0;
+  let previewCaption = 'Welcome to Tinaab! This is a sample post for testing the feed.';
 
   function renderPreviewWelcome(firstName, username, email) {
     const feed = getFeed();
@@ -73,6 +77,24 @@
           <p class="muted">@${escapeHtml(previewUser.username)}</p>
           <p>Your account journey preview is complete. The real version will load posts from the Tinaab backend after authentication.</p>
         </div>
+        <article class="post">
+          <div class="post-info">
+            <strong>@tinaab</strong>
+            <div class="caption">${escapeHtml(previewCaption)}</div>
+            <div class="tag">#tinaab #preview</div>
+          </div>
+          <div class="actions">
+            <button class="action" id="previewLike"><span>${previewLiked ? '♥' : '♡'}</span><small>${previewLiked ? 1 : 0}</small></button>
+            <button class="action" id="previewComment"><span>○</span><small>${previewCommentCount}</small></button>
+            <button class="action" id="previewFollow"><span>${previewFollowing ? '✓' : '＋'}</span><small>${previewFollowing ? 'Following' : 'Follow'}</small></button>
+          </div>
+        </article>
+        <div class="card auth-card">
+          <strong>Test a sample post</strong>
+          <p class="muted">This changes the local preview only. It does not publish to the server.</p>
+          <textarea id="previewPostCaption" maxlength="500" placeholder="Write a sample caption..." style="display:block;width:100%;min-height:100px;margin:10px 0;padding:14px 15px;border-radius:12px;border:1px solid #ffffff18;background:#0b0b0b;color:#fff;resize:vertical"></textarea>
+          <button class="primary full" id="previewUpdatePost">Update sample post</button>
+        </div>
         <div class="card">
           <strong>Explore Tinaab</strong>
           <p>For You · Following · Chat · Wallet · Profile</p>
@@ -121,6 +143,24 @@
       renderProfileSetup();
     }
     if (event.target.closest('#previewFinishSetup') || event.target.closest('#previewSkipSetup')) {
+      renderPreviewHome();
+    }
+    if (event.target.closest('#previewLike')) {
+      previewLiked = !previewLiked;
+      renderPreviewHome();
+    }
+    if (event.target.closest('#previewFollow')) {
+      previewFollowing = !previewFollowing;
+      renderPreviewHome();
+    }
+    if (event.target.closest('#previewComment')) {
+      previewCommentCount += 1;
+      alert('Preview comment added. The real version will open the server-backed comments screen.');
+      renderPreviewHome();
+    }
+    if (event.target.closest('#previewUpdatePost')) {
+      const nextCaption = document.querySelector('#previewPostCaption')?.value.trim();
+      if (nextCaption) previewCaption = nextCaption;
       renderPreviewHome();
     }
     if (event.target.closest('#previewReturnProfile')) {
