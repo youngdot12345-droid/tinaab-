@@ -5,7 +5,7 @@
 CREATE TABLE IF NOT EXISTS global_payout_destinations (
   id BIGSERIAL PRIMARY KEY,
   user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  provider TEXT NOT NULL CHECK (provider IN ('paypal', 'stripe', 'bank')),
+  provider TEXT NOT NULL CHECK (provider IN ('paypal', 'crypto', 'bank')),
   country_code TEXT NOT NULL CHECK (country_code ~ '^[A-Z]{2}$'),
   currency_code TEXT NOT NULL CHECK (currency_code ~ '^[A-Z]{3}$'),
   label TEXT NOT NULL,
@@ -21,7 +21,16 @@ CREATE TABLE IF NOT EXISTS global_payout_destinations (
   UNIQUE (user_id, provider, destination_hash)
 );
 
--- Upgrade existing installations from the previous crypto-enabled constraint.
+-- Remove legacy crypto destinations and unlink any related pending withdrawals.
+UPDATE withdrawal_requests
+SET payout_destination_id = NULL
+WHERE payout_destination_id IN (
+  SELECT id FROM global_payout_destinations WHERE provider = 'crypto'
+);
+
+DELETE FROM global_payout_destinations
+WHERE provider = 'crypto';
+
 DO $$
 BEGIN
   IF EXISTS (
@@ -33,10 +42,6 @@ BEGIN
       DROP CONSTRAINT global_payout_destinations_provider_check;
   END IF;
 END $$;
-
-UPDATE global_payout_destinations
-SET status = 'disabled'
-WHERE provider = 'crypto' AND status <> 'disabled';
 
 ALTER TABLE global_payout_destinations
   ADD CONSTRAINT global_payout_destinations_provider_check
