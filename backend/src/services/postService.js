@@ -1,5 +1,6 @@
 import { requireDatabase } from "../db/db.js";
 import { validateCaption } from "./socialRules.js";
+import { calculateReward } from "./rewardService.js";
 
 export async function createPost(userId, input = {}) {
   const validation = validateCaption(input.caption || "");
@@ -49,20 +50,65 @@ export async function getPublicFeed(limit = 20, cursor = null) {
 }
 
 export async function setPostLike(userId, postId, liked) {
-  const pool = requireDatabase();
-  const post = await pool.query("SELECT id FROM posts WHERE id = $1", [postId]);
-  if (!post.rows[0]) return { ok: false, reason: "Post not found." };
+  const db = requireDatabase();
+  const client = await db.connect();
 
-  if (liked) {
-    await pool.query(
-      `INSERT INTO post_likes (post_id, user_id) VALUES ($1, $2)
-       ON CONFLICT (post_id, user_id) DO NOTHING`,
-      [postId, userId]
+  try {
+    await client.query("BEGIN");
+
+    const post = await client.query(
+      "SELECT id,user_id FROM posts WHERE id=$1 AND visibility='public' FOR SHARE",
+      [postId]
     );
-  } else {
-    await pool.query("DELETE FROM post_likes WHERE post_id = $1 AND user_id = $2", [postId, userId]);
-  }
+    if (!post.rowCount) {
+      await client.query("ROLLBACK");
+      return { ok: false, reason: "Post not found." };
+    }
 
-  const count = await pool.query("SELECT COUNT(*)::int AS likes_count FROM post_likes WHERE post_id = $1", [postId]);
-  return { ok: true, liked, likesCount: count.rows[0].likes_count };
+    let changed = false;
+    if (liked) {
+      const inserted = await client.query(
+        `INSERT INTO post_likes (post_id, user_id) VALUES ($1, $2)
+         ON CONFLICT (post_id, user_id) DO NOTHING
+         RETURNING post_id`,
+        [postId, userId]
+      );
+      changed = inserted.rowCount > 0;
+
+      if (changed && Number(post.rows[0].user_id) !== Number(userId)) {
+        const reward = calculateReward("verified_like");
+        const activityReference = `like:${postId}:${userId}`;
+        await client.query(
+          `INSERT INTO reward_claims
+             (user_id,activity_type,server_amount_kobo,activity_reference,status)
+           VALUES ($1,'verified_like',$2,$3,'pending')
+           ON CONFLICT (user_id,activity_reference) DO NOTHING`,
+          [post.rows[0].user_id, reward.amount * 100, activityReference]
+        );
+        await client.query(
+          "INSERT INTO notifications (user_id,actor_id,type,reference_id) VALUES ($1,$2,'like',$3)",
+          [post.rows[0].user_id, userId, postId]
+        );
+      }
+    } else {
+      const deleted = await client.query(
+        "DELETE FROM post_likes WHERE post_id=$1 AND user_id=$2 RETURNING post_id",
+        [postId, userId]
+      );
+      changed = deleted.rowCount > 0;
+    }
+
+    const count = await client.query(
+      "SELECT COUNT(*)::int AS likes_count FROM post_likes WHERE post_id = $1",
+      [postId]
+    );
+
+    await client.query("COMMIT");
+    return { ok: true, liked, changed, likesCount: count.rows[0].likes_count };
+  } catch (error) {
+    await client.query("ROLLBACK");
+    throw error;
+  } finally {
+    client.release();
+  }
 }
