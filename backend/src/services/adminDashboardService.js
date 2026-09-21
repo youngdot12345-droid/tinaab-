@@ -67,3 +67,18 @@ export async function listAdminUsers({ limit, offset, search } = {}) {
     offset: safeOffset
   };
 }
+export async function listAdminAuditLogs({ limit } = {}) {
+  const db = requireDatabase();
+  const safeLimit = clamp(limit, 50, 100);
+  const result = await db.query(`
+    SELECT al.id, al.action, al.target_type, al.target_id,
+           al.metadata, al.created_at,
+           u.username AS actor_username
+      FROM audit_logs al
+      LEFT JOIN users u ON u.id = al.actor_user_id
+     ORDER BY al.id DESC
+     LIMIT $1
+  `, [safeLimit]);
+
+  return { ok: true, logs: result.rows, limit: safeLimit };
+}
