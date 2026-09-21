@@ -1,6 +1,6 @@
 import { getUserFromToken } from "./services/authService.js";
 import { isAdmin, listPendingRewardClaims, reviewRewardClaim } from "./services/adminRewardService.js";
-import { getAdminOverview, listAdminUsers } from "./services/adminDashboardService.js";
+import { getAdminOverview, listAdminUsers, listAdminAuditLogs } from "./services/adminDashboardService.js";
 
 function readBearerToken(req) {
   const header = String(req.headers.authorization || "");
@@ -40,6 +40,16 @@ export function registerAdminRoutes(app) {
         offset: req.query?.offset,
         search: req.query?.search
       }));
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.get("/api/admin/audit-logs", async (req, res, next) => {
+    try {
+      const admin = await requireAdmin(req, res);
+      if (!admin) return;
+      res.json(await listAdminAuditLogs({ limit: req.query?.limit }));
     } catch (error) {
       next(error);
     }
