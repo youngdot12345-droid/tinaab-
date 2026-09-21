@@ -16,7 +16,7 @@ function renderFeed(){
    <div class="actions">
      <button class="action like" data-i="${i}"><span>${(p.liked||state.liked.has(p.id))?"♥":"♡"}</span><small>${p.likes}</small></button>
      <button class="action" data-action="comment"><span>○</span><small>${p.comments}</small></button>
-     <button class="action" data-action="share"><span>↗</span><small>${p.shares}</small></button>
+     <button class="action" data-action="share"><span>↗</span><small>Share</small></button>
      <button class="action" data-action="repost"><span>${p.reposted?"✓":"⟳"}</span><small>${p.shares}</small></button>
      <button class="action" data-action="follow"><span>＋</span><small>Follow</small></button>
    </div>
@@ -161,7 +161,7 @@ let searchTimer;document.addEventListener("input",e=>{if(e.target.id!=="userSear
  if(e.target.closest("#cancelComment")){showView("home");return}
  if(e.target.closest("#readNotifications")){try{await TinaabAPI.post("/api/notifications/read",{});toast("Notifications marked read");notificationsView()}catch(err){toast(err.message)}return}
  if(e.target.closest("[data-action=\"comment\"]")){const article=e.target.closest(".post");const i=[...document.querySelectorAll(".post")].indexOf(article);if(i>=0)commentPost(state.posts[i].id);return}
- if(e.target.closest("[data-action=\"follow\"]")){const article=e.target.closest(".post");const i=[...document.querySelectorAll(".post")].indexOf(article);if(i>=0)openProfile(String(state.posts[i].user).replace(/^@/,""));return} if(e.target.closest("[data-action=\"repost\"]")){const article=e.target.closest(".post");const i=[...document.querySelectorAll(".post")].indexOf(article);if(i>=0)repostPost(state.posts[i].id);return}
+ if(e.target.closest("[data-action=\"share\"]")){const article=e.target.closest(".post");const i=[...document.querySelectorAll(".post")].indexOf(article);if(i<0)return;const p=state.posts[i];if(!state.user){toast("Log in to share posts.");return}try{const shareData={title:"Tinaab",text:p.caption||("Check out this post from "+p.user),url:window.location.origin+"/?post="+encodeURIComponent(p.id)};if(navigator.share){await navigator.share(shareData)}else if(navigator.clipboard?.writeText){await navigator.clipboard.writeText(shareData.url);toast("Post link copied");}else{throw new Error("Sharing is not supported on this device.")}const r=await TinaabAPI.post("/api/posts/"+p.id+"/share",{});toast(r.message||"Share submitted.");}catch(err){if(err?.name!=="AbortError")toast(err.message||"Could not share post.")}return} if(e.target.closest("[data-action=\"follow\"]")){const article=e.target.closest(".post");const i=[...document.querySelectorAll(".post")].indexOf(article);if(i>=0)openProfile(String(state.posts[i].user).replace(/^@/,""));return} if(e.target.closest("[data-action=\"repost\"]")){const article=e.target.closest(".post");const i=[...document.querySelectorAll(".post")].indexOf(article);if(i>=0)repostPost(state.posts[i].id);return}
  if(e.target.closest("#logoutBtn")){await TinaabAPI.logout();state.user=null;state.wallet=null;state.banks=[];toast("Logged out");showView("home")}
 });
 loadSession().then(()=>showView("home"));
