@@ -9,11 +9,10 @@ async function loadFeed(){try{const path=state.feedMode==="following"?"/api/feed
 function renderFeed(){
  const tabs='<div class="feed-tabs"><button class="text-btn '+(state.feedMode==="for-you"?"active":"")+'" data-feed-mode="for-you">For You</button><button class="text-btn '+(state.feedMode==="following"?"active":"")+'" data-feed-mode="following">Following</button></div>';
  if(!state.posts.length){feed.innerHTML='<section class="screen">'+tabs+'<div class="card"><strong>'+(state.feedMode==="following"?"No posts from people you follow yet.":"No public posts yet.")+'</strong><p>'+(state.feedMode==="following"?"Follow people to build your Following feed.":"Create the first post when the backend is ready.")+'</p></div></section>';return}
- feed.innerHTML=tabs+feed.innerHTML='<section class="screen"><h1>Tinaab</h1><div class="card"><strong>No public posts yet.</strong><p>Create the first post when the backend is ready.</p></div></section>';return}
- feed.innerHTML=state.posts.map((p,i)=>`
+ feed.innerHTML='<section class="screen">'+tabs+state.posts.map((p,i)=>`
  <article class="post">
    <div class="post-media">${p.mediaType==="image"&&p.media?`<img src="${escapeHtml(p.media)}" alt="Tinaab post media" loading="lazy">`:p.mediaType==="video"&&p.media?`<video src="${escapeHtml(p.media)}" controls playsinline preload="metadata"></video>`:p.media?escapeHtml(p.media):"✦"}</div>
-   <div class="post-info"><button class="user profile-link" data-username="${escapeHtml(String(p.user).replace(/^@/,''))}">${escapeHtml(p.user)}</button><div class="caption">${escapeHtml(p.caption)}</div><div class="tag">#tinaab #foryou</div></div>
+   <div class="post-info"><button class="user profile-link" data-username="${escapeHtml(String(p.user).replace(/^@/,''))}">${escapeHtml(p.user)}</button><div class="caption">${escapeHtml(p.caption)}</div><div class="tag">#tinaab #${state.feedMode==="following"?"following":"foryou"}</div></div>
    <div class="actions">
      <button class="action like" data-i="${i}"><span>${(p.liked||state.liked.has(p.id))?"♥":"♡"}</span><small>${p.likes}</small></button>
      <button class="action" data-action="comment"><span>○</span><small>${p.comments}</small></button>
@@ -21,7 +20,7 @@ function renderFeed(){
      <button class="action" data-action="repost"><span>${p.reposted?"✓":"⟳"}</span><small>${p.shares}</small></button>
      <button class="action" data-action="follow"><span>＋</span><small>Follow</small></button>
    </div>
- </article>`).join("");
+ </article>`).join("")+'</section>';
 }
 function showAuth(){
  feed.innerHTML=`<section class="screen"><h1>${state.authMode==="login"?"Log in":"Create account"}</h1>
