@@ -79,6 +79,18 @@ export async function sendMessage(userId, conversationId, body) {
   const id=Number(conversationId);
   if(!Number.isSafeInteger(id)||id<=0) return {ok:false,reason:"Invalid conversation."};
   if(!await requireMember(db,userId,id)) return {ok:false,reason:"Conversation not found."};
+
+  // Basic server-side anti-spam protection: limit each member to 30 messages per minute.
+  const recent=await db.query(
+    `SELECT COUNT(*)::int AS count
+       FROM messages
+      WHERE sender_id=$1 AND created_at > NOW() - INTERVAL '1 minute'`,
+    [userId]
+  );
+  if(Number(recent.rows[0]?.count||0)>=30){
+    return {ok:false,reason:"You are sending messages too quickly. Please wait a moment."};
+  }
+
   const result=await db.query(
     `INSERT INTO messages(conversation_id,sender_id,body) VALUES($1,$2,$3)
      RETURNING id,conversation_id,sender_id,body,created_at,read_at`,
