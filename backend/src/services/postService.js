@@ -21,14 +21,15 @@ export async function createPost(userId, input = {}) {
   return { ok: true, post: result.rows[0] };
 }
 
-export async function getPublicFeed(limit = 20, cursor = null) {
+export async function getPublicFeed(limit = 20, cursor = null, viewerId = null) {
   const pool = requireDatabase();
   const safeLimit = Math.min(Math.max(Number(limit) || 20, 1), 50);
-  const values = [safeLimit];
+  const values = [safeLimit, viewerId];
   let cursorClause = "";
 
   if (cursor) {
-    values.push(cursor);
+    values[0] = safeLimit;
+    values[1] = cursor;
     cursorClause = "WHERE p.created_at < $2";
   }
 
@@ -36,7 +37,10 @@ export async function getPublicFeed(limit = 20, cursor = null) {
     `SELECT p.id, p.user_id, p.caption, p.media_url, p.media_type, p.created_at,
             u.username, u.first_name, u.last_name,
             (SELECT COUNT(*) FROM post_likes pl WHERE pl.post_id = p.id) AS likes_count,
-            (SELECT COUNT(*) FROM comments c WHERE c.post_id = p.id) AS comments_count
+            (SELECT COUNT(*) FROM comments c WHERE c.post_id = p.id) AS comments_count,
+            (SELECT COUNT(*) FROM reposts r WHERE r.post_id = p.id) AS reposts_count,
+            CASE WHEN $3::bigint IS NULL THEN false ELSE EXISTS (SELECT 1 FROM post_likes vl WHERE vl.post_id = p.id AND vl.user_id = $3) END AS viewer_liked,
+            CASE WHEN $3::bigint IS NULL THEN false ELSE EXISTS (SELECT 1 FROM reposts vr WHERE vr.post_id = p.id AND vr.user_id = $3) END AS viewer_reposted
        FROM posts p
        JOIN users u ON u.id = p.user_id
        ${cursorClause}
