@@ -52,5 +52,18 @@ export async function listAdminUsers({ limit, offset, search } = {}) {
      LIMIT $3 OFFSET $4
   `, [term, pattern, safeLimit, safeOffset]);
 
-  return { ok: true, users: result.rows, limit: safeLimit, offset: safeOffset };
+  const countResult = await db.query(
+    `SELECT COUNT(*)::int AS total
+       FROM users
+      WHERE ($1 = '' OR username ILIKE $2 OR first_name ILIKE $2 OR last_name ILIKE $2)`,
+    [term, pattern]
+  );
+
+  return {
+    ok: true,
+    users: result.rows,
+    totalUsers: countResult.rows[0]?.total || 0,
+    limit: safeLimit,
+    offset: safeOffset
+  };
 }
