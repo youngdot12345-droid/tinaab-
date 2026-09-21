@@ -5,7 +5,7 @@ function toast(msg){toastEl.textContent=msg;toastEl.classList.add("show");clearT
 function escapeHtml(value){return String(value??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[c]))}
 function formatNaira(kobo){return "₦"+(Number(kobo||0)/100).toLocaleString("en-NG",{maximumFractionDigits:2})}
 async function loadSession(){const r=await TinaabAPI.me();state.user=r.ok?r.user:null}
-async function loadFeed(){try{const r=await TinaabAPI.get("/api/feed/public?limit=20");state.posts=(r.posts||[]).map(p=>({id:p.id,user:"@"+p.username,caption:p.caption,media:p.media_url||"",mediaType:p.media_type||"",likes:Number(p.likes_count||0),comments:Number(p.comments_count||0),shares:0}));renderFeed()}catch{state.posts=[];renderFeed();toast("Feed backend is not connected yet.")}}
+async function loadFeed(){try{const r=await TinaabAPI.get("/api/feed/public?limit=20");state.posts=(r.posts||[]).map(p=>({id:p.id,user:"@"+p.username,caption:p.caption,media:p.media_url||"",mediaType:p.media_type||"",likes:Number(p.likes_count||0),comments:Number(p.comments_count||0),shares:Number(p.reposts_count||0),liked:Boolean(p.viewer_liked),reposted:Boolean(p.viewer_reposted),ownerId:Number(p.user_id||0)}));renderFeed()}catch{state.posts=[];renderFeed();toast("Feed backend is not connected yet.")}}
 function renderFeed(){
  if(!state.posts.length){feed.innerHTML='<section class="screen"><h1>Tinaab</h1><div class="card"><strong>No public posts yet.</strong><p>Create the first post when the backend is ready.</p></div></section>';return}
  feed.innerHTML=state.posts.map((p,i)=>`
@@ -13,10 +13,10 @@ function renderFeed(){
    <div class="post-media">${p.mediaType==="image"&&p.media?`<img src="${escapeHtml(p.media)}" alt="Tinaab post media" loading="lazy">`:p.mediaType==="video"&&p.media?`<video src="${escapeHtml(p.media)}" controls playsinline preload="metadata"></video>`:p.media?escapeHtml(p.media):"✦"}</div>
    <div class="post-info"><button class="user profile-link" data-username="${escapeHtml(String(p.user).replace(/^@/,''))}">${escapeHtml(p.user)}</button><div class="caption">${escapeHtml(p.caption)}</div><div class="tag">#tinaab #foryou</div></div>
    <div class="actions">
-     <button class="action like" data-i="${i}"><span>${state.liked.has(p.id)?"♥":"♡"}</span><small>${p.likes+(state.liked.has(p.id)?1:0)}</small></button>
+     <button class="action like" data-i="${i}"><span>${(p.liked||state.liked.has(p.id))?"♥":"♡"}</span><small>${p.likes}</small></button>
      <button class="action" data-action="comment"><span>○</span><small>${p.comments}</small></button>
      <button class="action" data-action="share"><span>↗</span><small>${p.shares}</small></button>
-     <button class="action" data-action="repost"><span>⟳</span><small>Repost</small></button>
+     <button class="action" data-action="repost"><span>${p.reposted?"✓":"⟳"}</span><small>${p.shares}</small></button>
      <button class="action" data-action="follow"><span>＋</span><small>Follow</small></button>
    </div>
  </article>`).join("");
@@ -94,7 +94,7 @@ async function sendComment(postId){
  if(!body)return;
  try{await TinaabAPI.post("/api/posts/"+postId+"/comments",{body});toast("Comment added");commentPost(postId)}catch(e){toast(e.message)}
 }
-async function repostPost(postId){if(!state.user){toast("Log in to repost.");return}try{await TinaabAPI.post("/api/posts/"+postId+"/repost",{reposted:true});toast("Post reposted");}catch(e){toast(e.message)}}
+async function repostPost(postId){if(!state.user){toast("Log in to repost.");return}const p=state.posts.find(x=>Number(x.id)===Number(postId));if(!p)return;try{const next=!p.reposted;const r=await TinaabAPI.post("/api/posts/"+postId+"/repost",{reposted:next});if(!r.ok)throw new Error(r.reason||"Could not update repost.");p.reposted=next;p.shares=Number(r.repostsCount??p.shares);renderFeed();toast(next?"Post reposted":"Repost removed");}catch(e){toast(e.message)}}
 async function chatView(){
  if(!state.user){feed.innerHTML='<section class="screen"><h1>Chat</h1><div class="card"><p>Log in to use Tinaab messaging.</p><button class="primary" id="chatLogin">Log in</button></div></section>';return}
  try{
@@ -141,7 +141,7 @@ let searchTimer;document.addEventListener("input",e=>{if(e.target.id!=="userSear
  if(e.target.closest("#saveBank")){saveBank();return}
  if(e.target.closest("#withdrawBtn")){withdraw();return}
  const defaultBank=e.target.closest("[data-default-bank]");if(defaultBank){try{await TinaabAPI.post("/api/bank-accounts/"+defaultBank.dataset.defaultBank+"/default");toast("Default bank updated");await loadWallet();walletView()}catch(err){toast(err.message)}return}
- const like=e.target.closest(".like");if(like){const p=state.posts[Number(like.dataset.i)];if(!state.user){toast("Log in to like posts.");return}try{const isLiked=state.liked.has(p.id);const r=isLiked?await TinaabAPI.del("/api/posts/"+p.id+"/like"):await TinaabAPI.post("/api/posts/"+p.id+"/like",{});if(isLiked)state.liked.delete(p.id);else state.liked.add(p.id);p.likes=Number(r.likesCount??p.likes);renderFeed()}catch(err){toast(err.message)}return}
+ const like=e.target.closest(".like");if(like){const p=state.posts[Number(like.dataset.i)];if(!state.user){toast("Log in to like posts.");return}try{const isLiked=Boolean(p.liked||state.liked.has(p.id));const r=isLiked?await TinaabAPI.del("/api/posts/"+p.id+"/like"):await TinaabAPI.post("/api/posts/"+p.id+"/like",{});p.liked=!isLiked;if(p.liked)state.liked.add(p.id);else state.liked.delete(p.id);p.likes=Number(r.likesCount??p.likes);renderFeed()}catch(err){toast(err.message)}return}
  if(e.target.closest("#createBtn")){createView();return;}
  if(e.target.closest("#searchBtn")){searchView();return;}
  if(e.target.closest("#notifyBtn")){notificationsView();return;}
