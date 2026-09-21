@@ -4,6 +4,7 @@
   const status=$('adminStatus');
   const usersOutput=$('usersOutput');
   const reviewsOutput=$('reviewsOutput');
+  const withdrawalsOutput=$('withdrawalsOutput');
   const search=$('userSearch');
   let offset=0;
   const limit=50;
@@ -13,6 +14,10 @@
   function renderUsers(items,total){
     if(!items.length){usersOutput.textContent='No users found.';return;}
     usersOutput.innerHTML='<table class="admin-table"><thead><tr><th>ID</th><th>Username</th><th>Name</th><th>Role</th><th>Verified</th><th>Created</th></tr></thead><tbody>'+items.map(user=>'<tr><td>'+escapeHtml(user.id)+'</td><td>'+escapeHtml(user.username||'—')+'</td><td>'+escapeHtml([user.first_name,user.last_name].filter(Boolean).join(' ')||'—')+'</td><td>'+escapeHtml(user.role||'user')+'</td><td>'+escapeHtml(user.verified?'Yes':'No')+'</td><td>'+escapeHtml(user.created_at||'—')+'</td></tr>').join('')+'</tbody></table><p class="admin-muted">Showing '+items.length+' of '+escapeHtml(total??items.length)+' matching users.</p>';
+  }
+  function renderWithdrawals(items){
+    if(!items.length){withdrawalsOutput.textContent='No pending withdrawals.';return;}
+    withdrawalsOutput.innerHTML='<table class="admin-table"><thead><tr><th>ID</th><th>User</th><th>Amount</th><th>Status</th><th>Created</th></tr></thead><tbody>'+items.map(item=>'<tr><td>'+escapeHtml(item.id||item.withdrawal_id||'—')+'</td><td>'+escapeHtml(item.username||item.user_id||'—')+'</td><td>'+escapeHtml(item.amount_kobo!=null?('₦'+(Number(item.amount_kobo)/100).toLocaleString('en-NG',{maximumFractionDigits:2})):'—')+'</td><td>'+escapeHtml(item.status||'pending')+'</td><td>'+escapeHtml(item.created_at||'—')+'</td></tr>').join('')+'</tbody></table>';
   }
   function renderReviews(items){
     if(!items.length){reviewsOutput.textContent='No pending reviews.';return;}
@@ -26,9 +31,10 @@
   async function load(){
     showStatus('Checking administrator access…');
     try{
-      const [overview,reviews]=await Promise.all([
+      const [overview,reviews,withdrawals]=await Promise.all([
         TinaabAPI.get('/api/admin/overview'),
-        TinaabAPI.get('/api/admin/rewards/pending?limit=50')
+        TinaabAPI.get('/api/admin/rewards/pending?limit=50'),
+        TinaabAPI.get('/api/admin/withdrawals/pending?limit=50')
       ]);
       const stats=overview.stats||overview;
       $('totalUsers').textContent=stats.totalUsers??'—';
@@ -36,7 +42,10 @@
       $('recentUsers').textContent=stats.recentUsers??'—';
       const reviewItems=reviews.claims||reviews.items||[];
       $('pendingReviews').textContent=stats.pendingReviews??reviewItems.length;
+      $('totalPosts').textContent=stats.totalPosts??'—';
+      $('pendingWithdrawals').textContent=stats.pendingWithdrawals??((withdrawals.withdrawals||withdrawals.items||[]).length);
       renderReviews(reviewItems);
+      renderWithdrawals(withdrawals.withdrawals||withdrawals.items||[]);
       offset=0;
       await loadUsers();
       showStatus('Administrator access confirmed.');
@@ -44,6 +53,7 @@
       showStatus(error.message||'Unable to load the admin dashboard. Confirm administrator permissions and backend routes.',true);
       usersOutput.textContent='User data unavailable.';
       reviewsOutput.textContent='Review data unavailable.';
+      withdrawalsOutput.textContent='Withdrawal data unavailable.';
     }
   }
   $('adminRefresh').addEventListener('click',load);
