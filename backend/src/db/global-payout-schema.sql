@@ -21,6 +21,12 @@ CREATE TABLE IF NOT EXISTS global_payout_destinations (
   UNIQUE (user_id, provider, destination_hash)
 );
 
+-- Ensure the withdrawal columns exist before referencing them below.
+ALTER TABLE withdrawal_requests ADD COLUMN IF NOT EXISTS payout_destination_id BIGINT REFERENCES global_payout_destinations(id);
+ALTER TABLE withdrawal_requests ADD COLUMN IF NOT EXISTS provider_snapshot TEXT;
+ALTER TABLE withdrawal_requests ADD COLUMN IF NOT EXISTS country_code_snapshot TEXT;
+ALTER TABLE withdrawal_requests ADD COLUMN IF NOT EXISTS currency_code_snapshot TEXT;
+
 -- Remove legacy crypto destinations and unlink any related pending withdrawals.
 UPDATE withdrawal_requests
 SET payout_destination_id = NULL
@@ -54,9 +60,5 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_one_default_global_payout_destination
   ON global_payout_destinations(user_id)
   WHERE is_default = TRUE;
 
-ALTER TABLE withdrawal_requests ADD COLUMN IF NOT EXISTS payout_destination_id BIGINT REFERENCES global_payout_destinations(id);
-ALTER TABLE withdrawal_requests ADD COLUMN IF NOT EXISTS provider_snapshot TEXT;
-ALTER TABLE withdrawal_requests ADD COLUMN IF NOT EXISTS country_code_snapshot TEXT;
-ALTER TABLE withdrawal_requests ADD COLUMN IF NOT EXISTS currency_code_snapshot TEXT;
 CREATE INDEX IF NOT EXISTS idx_withdrawals_payout_destination
   ON withdrawal_requests(payout_destination_id, created_at DESC);
