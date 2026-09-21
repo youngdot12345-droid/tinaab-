@@ -3,10 +3,8 @@
 
   const PROFILE_ACTIONS = ["like", "comment", "repost", "share"];
   let refreshTimer;
-
-  function escapeValue(value){
-    return String(value ?? "").replace(/[&<>\"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'\"':"&quot;","'":"&#039;"}[c]));
-  }
+  let profilePostsCache = null;
+  let profilePostsPromise = null;
 
   function notify(message){
     if(typeof window.toast === "function") window.toast(message);
@@ -17,8 +15,38 @@
     return document.querySelector(".profile-head h1")?.textContent?.replace(/^@/, "").trim() || "";
   }
 
+  function invalidateProfileCache(){
+    profilePostsCache = null;
+    profilePostsPromise = null;
+  }
+
+  async function getProfilePosts(forceRefresh=false){
+    const username=currentUsername();
+    if(!username) throw new Error("Profile username is missing.");
+
+    if(forceRefresh || profilePostsCache?.username!==username){
+      profilePostsCache=null;
+      profilePostsPromise=null;
+    }
+
+    if(profilePostsCache?.username===username) return profilePostsCache;
+    if(profilePostsPromise) return profilePostsPromise;
+
+    profilePostsPromise=TinaabAPI.get(
+      "/api/profiles/"+encodeURIComponent(username)+"/posts?limit=50"
+    ).then(result=>{
+      profilePostsCache={username,posts:result.posts||[]};
+      return profilePostsCache;
+    }).finally(()=>{
+      profilePostsPromise=null;
+    });
+
+    return profilePostsPromise;
+  }
+
   function addActionBar(card, index, post){
     if(card.querySelector(".profile-post-actions")) return;
+
     const bar=document.createElement("div");
     bar.className="profile-post-actions";
     bar.innerHTML=`
@@ -29,27 +57,23 @@
     card.appendChild(bar);
   }
 
-  async function getProfilePosts(){
-    const username=currentUsername();
-    if(!username) throw new Error("Profile username is missing.");
-    const result=await TinaabAPI.get("/api/profiles/"+encodeURIComponent(username)+"/posts?limit=50");
-    return {username, posts:result.posts||[]};
-  }
-
   function scheduleRefresh(username){
     clearTimeout(refreshTimer);
+    invalidateProfileCache();
     refreshTimer=setTimeout(()=>{
       if(typeof window.openProfile === "function" && username) window.openProfile(username);
-    }, 250);
+    },250);
   }
 
   async function handleAction(button){
     const action=button.dataset.profileAction;
     if(!PROFILE_ACTIONS.includes(action)) return;
+
     const index=Number(button.dataset.profileIndex);
     const {username,posts}=await getProfilePosts();
     const post=posts[index];
     if(!post) throw new Error("Post not found.");
+
     const postId=post.id;
 
     if(action==="comment"){
@@ -69,7 +93,10 @@
     }
 
     if(action==="repost"){
-      const result=await TinaabAPI.post("/api/posts/"+postId+"/repost",{reposted:!post.viewer_reposted});
+      const result=await TinaabAPI.post(
+        "/api/posts/"+postId+"/repost",
+        {reposted:!post.viewer_reposted}
+      );
       if(!result.ok) throw new Error(result.reason||"Could not update repost.");
       notify(post.viewer_reposted ? "Repost removed" : "Post reposted");
       scheduleRefresh(username);
@@ -79,36 +106,48 @@
     if(action==="share"){
       const shareData={
         title:"Tinaab",
-        text:post.caption||("Check out this post on Tinaab"),
+        text:post.caption||"Check out this post on Tinaab",
         url:window.location.origin+"/?post="+encodeURIComponent(postId)
       };
+
       if(navigator.share) await navigator.share(shareData);
       else if(navigator.clipboard?.writeText){
         await navigator.clipboard.writeText(shareData.url);
         notify("Post link copied");
-      } else throw new Error("Sharing is not supported on this device.");
+      } else {
+        throw new Error("Sharing is not supported on this device.");
+      }
+
       const result=await TinaabAPI.post("/api/posts/"+postId+"/share",{});
       if(!result.ok) throw new Error(result.reason||"Share could not be submitted.");
       notify(result.message||"Share submitted for verification.");
     }
   }
 
-  function enhanceProfilePosts(){
+  async function enhanceProfilePosts(){
     const cards=[...document.querySelectorAll(".profile-post")];
     if(!cards.length) return;
-    cards.forEach((card,index)=>{
-      if(card.dataset.profileEnhanced==="true") return;
-      card.dataset.profileEnhanced="true";
-      card.classList.add("profile-post-enhanced");
-      card.querySelector(".tag")?.setAttribute("aria-hidden","true");
-      getProfilePosts().then(({posts})=>{
+
+    try{
+      const {posts}=await getProfilePosts();
+      cards.forEach((card,index)=>{
+        if(card.dataset.profileEnhanced==="true") return;
         const post=posts[index];
-        if(post) addActionBar(card,index,post);
-      }).catch(()=>{});
-    });
+        if(!post) return;
+
+        card.dataset.profileEnhanced="true";
+        card.classList.add("profile-post-enhanced");
+        card.querySelector(".tag")?.setAttribute("aria-hidden","true");
+        addActionBar(card,index,post);
+      });
+    }catch(error){
+      console.warn("Could not enhance profile posts:",error);
+    }
   }
 
-  const observer=new MutationObserver(enhanceProfilePosts);
+  const observer=new MutationObserver(()=>{
+    enhanceProfilePosts();
+  });
   observer.observe(document.body,{childList:true,subtree:true});
   enhanceProfilePosts();
 
@@ -117,9 +156,14 @@
     if(!button) return;
     event.preventDefault();
     if(button.dataset.busy==="true") return;
+
     button.dataset.busy="true";
-    try{await handleAction(button)}
-    catch(error){if(error?.name!=="AbortError") notify(error.message||"Could not complete action.")}
-    finally{button.dataset.busy="false"}
+    try{
+      await handleAction(button);
+    }catch(error){
+      if(error?.name!=="AbortError") notify(error.message||"Could not complete action.");
+    }finally{
+      button.dataset.busy="false";
+    }
   });
 })();
