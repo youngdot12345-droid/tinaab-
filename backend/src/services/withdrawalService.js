@@ -5,6 +5,10 @@ function makeReference(prefix) {
   return prefix + "_" + crypto.randomBytes(12).toString("hex");
 }
 
+function payoutExecutionEnabled() {
+  return String(process.env.PAYOUT_EXECUTION_ENABLED || "").toLowerCase() === "true";
+}
+
 export async function listPendingWithdrawals(limit = 50) {
   const db = requireDatabase();
   const safeLimit = Math.min(Math.max(Number(limit) || 50, 1), 100);
@@ -97,6 +101,11 @@ export async function reconcileWithdrawal(withdrawalId, actorId, decision, provi
     if (decision !== "success") {
       await client.query("ROLLBACK");
       return { ok: false, reason: "Decision must be success or fail." };
+    }
+
+    if (!payoutExecutionEnabled()) {
+      await client.query("ROLLBACK");
+      return { ok: false, reason: "Successful payout reconciliation is disabled until a verified provider adapter and production configuration are enabled." };
     }
 
     const providerRef = String(providerReference || "").trim().slice(0, 200);
