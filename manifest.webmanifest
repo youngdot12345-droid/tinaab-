@@ -1,9 +1,11 @@
 {
   "name": "Tinaab",
   "short_name": "Tinaab",
+  "description": "Tinaab — connect, create, chat and earn.",
   "start_url": "/",
+  "scope": "/",
   "display": "standalone",
+  "orientation": "portrait",
   "background_color": "#000000",
-  "theme_color": "#000000",
-  "description": "Tinaab — connect, create, chat and earn."
+  "theme_color": "#000000"
 }
