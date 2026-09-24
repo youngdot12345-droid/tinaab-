@@ -12,10 +12,9 @@ export async function listConversations(userId) {
             (SELECT json_build_object('id',m.id,'body',m.body,'senderId',m.sender_id,'createdAt',m.created_at,'readAt',m.read_at)
                FROM messages m WHERE m.conversation_id=c.id ORDER BY m.id DESC LIMIT 1) AS last_message
        FROM conversations c
-       JOIN conversation_members cm ON cm.conversation_id=c.id
-       LEFT JOIN conversation_members other_cm ON other_cm.conversation_id=c.id
+       JOIN conversation_members cm ON cm.conversation_id=c.id AND cm.user_id=$1
+       LEFT JOIN conversation_members other_cm ON other_cm.conversation_id=c.id AND other_cm.user_id<>$1
        LEFT JOIN users u ON u.id=other_cm.user_id
-      WHERE cm.user_id=$1
       GROUP BY c.id
       ORDER BY COALESCE((SELECT MAX(m2.created_at) FROM messages m2 WHERE m2.conversation_id=c.id),c.created_at) DESC
       LIMIT 50`,
