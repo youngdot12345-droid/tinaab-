@@ -1,5 +1,6 @@
 import crypto from "node:crypto";
 import { requireDatabase } from "../db/db.js";
+import { sendVerificationEmail } from "./emailService.js";
 
 const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 
@@ -50,6 +51,8 @@ export async function signup(input) {
   const db = requireDatabase();
   const passwordHash = hashPassword(data.password);
   const client = await db.connect();
+  let user;
+  let code;
   try {
     await client.query("BEGIN");
     const userResult = await client.query(
@@ -57,8 +60,8 @@ export async function signup(input) {
        VALUES ($1,$2,$3,$4,$5) RETURNING id, email, first_name, last_name, username, email_verified`,
       [data.email, data.firstName, data.lastName, data.username, passwordHash]
     );
-    const user = userResult.rows[0];
-    const code = String(crypto.randomInt(100000, 1000000));
+    user = userResult.rows[0];
+    code = String(crypto.randomInt(100000, 1000000));
     const codeHash = crypto.createHash("sha256").update(code).digest("hex");
     await client.query(
       `INSERT INTO email_codes (user_id, email, code_hash, expires_at) VALUES ($1,$2,$3,NOW() + INTERVAL '10 minutes')`,
@@ -66,8 +69,6 @@ export async function signup(input) {
     );
     await client.query("INSERT INTO wallet_accounts (user_id) VALUES ($1)", [user.id]);
     await client.query("COMMIT");
-    if (process.env.NODE_ENV !== "production") console.log(`[Tinaab development email code] ${user.email}: ${code}`);
-    return { ok: true, user, message: "Account created. Check your email for the verification code." };
   } catch (error) {
     await client.query("ROLLBACK");
     if (error.code === "23505") return { ok: false, reason: "Email or username is already in use." };
@@ -75,6 +76,12 @@ export async function signup(input) {
   } finally {
     client.release();
   }
+
+  const delivery = await sendVerificationEmail({ to: user.email, firstName: user.first_name, code });
+  if (!delivery.ok) {
+    return { ok: false, reason: "Account created, but the verification email could not be sent. Please contact support." };
+  }
+  return { ok: true, user, message: "Account created. Check your email for the verification code." };
 }
 
 export async function verifyEmail(emailInput, codeInput) {
