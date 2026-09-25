@@ -1,1 +1,94 @@
-const TinaabAPI=(()=>{const TOKEN_KEY="tinaab_session";const API_BASE=String(window.TINAAB_API_BASE||"").replace(/\/$/,"");const REQUEST_TIMEOUT=15000;const getToken=()=>localStorage.getItem(TOKEN_KEY)||"";const setToken=t=>t?localStorage.setItem(TOKEN_KEY,t):localStorage.removeItem(TOKEN_KEY);const resolvePath=path=>API_BASE+(String(path).startsWith("/")?String(path):"/"+path);async function request(path,options={}){const headers={"Content-Type":"application/json",...(options.headers||{})};const token=getToken();if(token)headers.Authorization="Bearer "+token;const controller=new AbortController();const timeout=window.setTimeout(()=>controller.abort(),REQUEST_TIMEOUT);let res;try{res=await fetch(resolvePath(path),{...options,headers,signal:controller.signal})}catch(error){if(error.name==="AbortError")throw new Error("The request took too long. Please try again.");throw new Error("Network error. Check your connection and try again.")}finally{window.clearTimeout(timeout)}let data={};try{data=await res.json()}catch{}if(!res.ok)throw new Error(data.reason||data.error||"Request failed.");return data}return{getToken,setToken,get:(path)=>request(path),post:(path,body)=>request(path,{method:"POST",body:JSON.stringify(body)}),del:(path)=>request(path,{method:"DELETE"}),async upload(path,file){const headers={};const token=getToken();if(token)headers.Authorization="Bearer "+token;const form=new FormData();form.append("file",file);const controller=new AbortController();const timeout=window.setTimeout(()=>controller.abort(),30000);let res;try{res=await fetch(resolvePath(path),{method:"POST",headers,body:form,signal:controller.signal})}catch(error){if(error.name==="AbortError")throw new Error("The upload took too long. Please try again.");throw new Error("Network error during upload. Check your connection.")}finally{window.clearTimeout(timeout)}let data={};try{data=await res.json()}catch{}if(!res.ok)throw new Error(data.reason||data.error||"Upload failed.");return data},async me(){try{return await request("/api/auth/me")}catch{return{ok:false}}},async logout(){try{await request("/api/auth/logout",{method:"POST"})}finally{setToken("")}},async login(email,password){const r=await request("/api/auth/login",{method:"POST",body:JSON.stringify({email,password})});if(r.token)setToken(r.token);return r},signup:(body)=>request("/api/auth/signup",{method:"POST",body:JSON.stringify(body)}),verifyEmail:(email,code)=>request("/api/auth/verify-email",{method:"POST",body:JSON.stringify({email,code})})}})();
+const TinaabAPI = (() => {
+  const TOKEN_KEY = "tinaab_session";
+  const API_BASE = String(window.TINAAB_API_BASE || "").replace(/\/$/, "");
+  const REQUEST_TIMEOUT = 15000;
+
+  const getToken = () => localStorage.getItem(TOKEN_KEY) || "";
+  const setToken = (token) => token ? localStorage.setItem(TOKEN_KEY, token) : localStorage.removeItem(TOKEN_KEY);
+  const resolvePath = (path) => API_BASE + (String(path).startsWith("/") ? String(path) : "/" + path);
+
+  async function parseResponse(res) {
+    const contentType = res.headers.get("content-type") || "";
+    let data = {};
+    if (contentType.includes("application/json")) {
+      try { data = await res.json(); } catch { data = {}; }
+    } else {
+      try {
+        const text = await res.text();
+        if (text) data = { error: text.slice(0, 240) };
+      } catch { data = {}; }
+    }
+    return data;
+  }
+
+  async function request(path, options = {}) {
+    const headers = { "Content-Type": "application/json", ...(options.headers || {}) };
+    const token = getToken();
+    if (token) headers.Authorization = "Bearer " + token;
+
+    const controller = new AbortController();
+    const timeout = window.setTimeout(() => controller.abort(), REQUEST_TIMEOUT);
+    let res;
+
+    try {
+      res = await fetch(resolvePath(path), { ...options, headers, signal: controller.signal });
+    } catch (error) {
+      if (error.name === "AbortError") throw new Error("The request took too long. Please try again.");
+      throw new Error("The Tinaab server could not be reached. Check your connection and try again.");
+    } finally {
+      window.clearTimeout(timeout);
+    }
+
+    const data = await parseResponse(res);
+    if (!res.ok) {
+      const message = data.reason || data.error || data.message;
+      if (message) throw new Error(message);
+      if (res.status === 503) throw new Error("Tinaab database is not configured yet. Please try again later.");
+      if (res.status >= 500) throw new Error("Tinaab server error. Please try again later.");
+      throw new Error(`Request failed (HTTP ${res.status}).`);
+    }
+    return data;
+  }
+
+  return {
+    getToken,
+    setToken,
+    get: (path) => request(path),
+    post: (path, body) => request(path, { method: "POST", body: JSON.stringify(body) }),
+    del: (path) => request(path, { method: "DELETE" }),
+    async upload(path, file) {
+      const headers = {};
+      const token = getToken();
+      if (token) headers.Authorization = "Bearer " + token;
+      const form = new FormData();
+      form.append("file", file);
+      const controller = new AbortController();
+      const timeout = window.setTimeout(() => controller.abort(), 30000);
+      let res;
+      try {
+        res = await fetch(resolvePath(path), { method: "POST", headers, body: form, signal: controller.signal });
+      } catch (error) {
+        if (error.name === "AbortError") throw new Error("The upload took too long. Please try again.");
+        throw new Error("Network error during upload. Check your connection.");
+      } finally {
+        window.clearTimeout(timeout);
+      }
+      const data = await parseResponse(res);
+      if (!res.ok) throw new Error(data.reason || data.error || `Upload failed (HTTP ${res.status}).`);
+      return data;
+    },
+    async me() {
+      try { return await request("/api/auth/me"); } catch { return { ok: false }; }
+    },
+    async logout() {
+      try { await request("/api/auth/logout", { method: "POST" }); } finally { setToken(""); }
+    },
+    async login(email, password) {
+      const result = await request("/api/auth/login", { method: "POST", body: JSON.stringify({ email, password }) });
+      if (result.token) setToken(result.token);
+      return result;
+    },
+    signup: (body) => request("/api/auth/signup", { method: "POST", body: JSON.stringify(body) }),
+    verifyEmail: (email, code) => request("/api/auth/verify-email", { method: "POST", body: JSON.stringify({ email, code }) })
+  };
+})();
