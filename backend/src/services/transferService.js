@@ -1,16 +1,20 @@
 import crypto from "node:crypto";
 import { requireDatabase } from "../db/db.js";
+import { verifyTransactionPin } from "./transactionPinService.js";
 
 function makeReference() {
   return "tr_" + crypto.randomBytes(12).toString("hex");
 }
 
-export async function transferToTinaabWallet(senderUserId, username, userIdNumber, amountKobo) {
+export async function transferToTinaabWallet(senderUserId, username, userIdNumber, amountKobo, transactionPin) {
   const cleanUsername = String(username || "").trim();
   const recipientId = Number(userIdNumber);
   if (!cleanUsername || cleanUsername.length > 50) return { ok:false, reason:"A valid username is required." };
   if (!Number.isSafeInteger(recipientId) || recipientId <= 0) return { ok:false, reason:"A valid Tinaab ID number is required." };
   if (!Number.isSafeInteger(amountKobo) || amountKobo <= 0) return { ok:false, reason:"Invalid transfer amount." };
+
+  const pinCheck = await verifyTransactionPin(senderUserId, transactionPin);
+  if (!pinCheck.ok) return pinCheck;
 
   const db = requireDatabase();
   const client = await db.connect();
