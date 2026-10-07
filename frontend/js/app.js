@@ -7,20 +7,20 @@ function formatNaira(kobo){return "₦"+(Number(kobo||0)/100).toLocaleString("en
 async function loadSession(){const r=await TinaabAPI.me();state.user=r.ok?r.user:null}
 async function loadFeed(){try{const path=state.feedMode==="following"?"/api/feed/following?limit=20":"/api/feed/public?limit=20";const r=await TinaabAPI.get(path);state.posts=(r.posts||[]).map(p=>({id:p.id,user:"@"+p.username,caption:p.caption,media:p.media_url||"",mediaType:p.media_type||"",likes:Number(p.likes_count||0),comments:Number(p.comments_count||0),shares:Number(p.reposts_count||0),liked:Boolean(p.viewer_liked),reposted:Boolean(p.viewer_reposted),following:Boolean(p.viewer_following),ownerId:Number(p.user_id||0)}));renderFeed()}catch(e){state.posts=[];renderFeed();toast(e.message||"Could not load feed.")}}
 function renderFeed(){
- const tabs='<div class="feed-tabs"><button class="text-btn '+(state.feedMode==="for-you"?"active":"")+'" data-feed-mode="for-you">For You</button><button class="text-btn '+(state.feedMode==="following"?"active":"")+'" data-feed-mode="following">Following</button></div>';
- if(!state.posts.length){feed.innerHTML='<section class="screen">'+tabs+'<div class="card"><strong>'+(state.feedMode==="following"?"No posts from people you follow yet.":"No public posts yet.")+'</strong><p>'+(state.feedMode==="following"?"Follow people to build your Following feed.":"Create the first post when the backend is ready.")+'</p></div></section>';return}
- feed.innerHTML='<section class="screen">'+tabs+state.posts.map((p,i)=>`
+ const tabs='<div class="feed-top-tabs"><button class="feed-tab">Drama</button><button class="feed-tab">Community</button><button class="feed-tab '+(state.feedMode==="following"?"":"active")+'">For You</button><button class="feed-tab '+(state.feedMode==="following"?"active":"")+'" data-feed-mode="following">Following</button><button class="feed-search" data-action="search" aria-label="Search">⌕</button></div>';
+ if(!state.posts.length){feed.innerHTML=tabs+'<section class="feed-empty"><strong>'+(state.feedMode==="following"?"No posts from people you follow yet.":"No public posts yet.")+'</strong><p>'+(state.feedMode==="following"?"Follow people to build your Following feed.":"Create the first post when the backend is ready.")+'</p></section>';return}
+ feed.innerHTML=tabs+state.posts.map((p,i)=>`
  <article class="post">
-   <div class="post-media">${p.mediaType==="image"&&p.media?`<img src="${escapeHtml(p.media)}" alt="Tinaab post media" loading="lazy">`:p.mediaType==="video"&&p.media?`<video src="${escapeHtml(p.media)}" controls playsinline preload="metadata"></video>`:p.media?escapeHtml(p.media):"✦"}</div>
+   <div class="post-media">${p.mediaType==="image"&&p.media?`<img src="${escapeHtml(p.media)}" alt="Tinaab post media" loading="lazy">`:p.mediaType==="video"&&p.media?`<video src="${escapeHtml(p.media)}" autoplay muted loop playsinline preload="metadata"></video>`:p.media?escapeHtml(p.media):"✦"}</div>
    <div class="post-info"><button class="user profile-link" data-username="${escapeHtml(String(p.user).replace(/^@/,''))}">${escapeHtml(p.user)}</button><div class="caption">${escapeHtml(p.caption)}</div><div class="tag">#tinaab #${state.feedMode==="following"?"following":"foryou"}</div></div>
    <div class="actions">
      <button class="action like" data-i="${i}"><span>${(p.liked||state.liked.has(p.id))?"♥":"♡"}</span><small>${p.likes}</small></button>
-     <button class="action" data-action="comment"><span>○</span><small>${p.comments}</small></button>
+     <button class="action" data-action="comment"><span>💬</span><small>${p.comments}</small></button>
      <button class="action" data-action="share"><span>↗</span><small>Share</small></button>
      <button class="action" data-action="repost"><span>${p.reposted?"✓":"⟳"}</span><small>${p.shares}</small></button>
      <button class="action follow-action" data-action="follow" ${state.user&&Number(p.ownerId)===Number(state.user.id)?'disabled':''}><span>${p.following?'✓':'＋'}</span><small>${p.following?'Following':'Follow'}</small></button>
    </div>
- </article>`).join("")+'</section>';
+ </article>`).join("");
 }
 function showAuth(){
  feed.innerHTML=`<section class="screen"><h1>${state.authMode==="login"?"Log in":"Create account"}</h1>
