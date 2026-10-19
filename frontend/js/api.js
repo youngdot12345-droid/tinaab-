@@ -6,6 +6,7 @@ const TinaabAPI = (() => {
   const getToken = () => localStorage.getItem(TOKEN_KEY) || "";
   const setToken = (token) => token ? localStorage.setItem(TOKEN_KEY, token) : localStorage.removeItem(TOKEN_KEY);
   const resolvePath = (path) => API_BASE + (String(path).startsWith("/") ? String(path) : "/" + path);
+  const resolveMediaUrl = (path) => { const value = String(path || "").trim(); if (!value) return ""; if (/^https?:\/\//i.test(value) || value.startsWith("data:") || value.startsWith("blob:")) return value; return API_BASE ? new URL(value.startsWith("/") ? value : "/" + value, API_BASE).toString() : value; };
 
   async function parseResponse(res) {
     const contentType = res.headers.get("content-type") || "";
@@ -51,6 +52,7 @@ const TinaabAPI = (() => {
   }
 
   return {
+    mediaUrl: resolveMediaUrl,
     getToken,
     setToken,
     get: (path) => request(path),
