@@ -18,11 +18,11 @@ export function registerAuthRoutes(app) {
   app.use("/api/auth", authLimiter);
 
   app.post("/api/auth/signup", async (req, res, next) => {
-    try { res.status(201).json(await signup(req.body || {})); } catch (error) { next(error); }
+    try { const result = await signup(req.body || {}); res.status(result.ok ? 201 : (result.reason === "Email or username is already in use." ? 409 : 400)).json(result); } catch (error) { next(error); }
   });
 
   app.post("/api/auth/verify-email", async (req, res, next) => {
-    try { res.json(await verifyEmail(req.body?.email, req.body?.code)); } catch (error) { next(error); }
+    try { const result = await verifyEmail(req.body?.email, req.body?.code); res.status(result.ok ? 200 : 400).json(result); } catch (error) { next(error); }
   });
 
   app.post("/api/auth/login", async (req, res, next) => {
