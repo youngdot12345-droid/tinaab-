@@ -41,11 +41,12 @@ const TinaabAPI = (() => {
     }
 
     const data = await parseResponse(res);
-    if (!res.ok) {
+    if (!res.ok || data?.ok === false) {
       const message = data.reason || data.error || data.message;
       if (message) throw new Error(message);
       if (res.status === 503) throw new Error("Tinaab database is not configured yet. Please try again later.");
       if (res.status >= 500) throw new Error("Tinaab server error. Please try again later.");
+      if (res.ok) throw new Error("Tinaab could not complete that request. Please try again.");
       throw new Error(`Request failed (HTTP ${res.status}).`);
     }
     return data;
