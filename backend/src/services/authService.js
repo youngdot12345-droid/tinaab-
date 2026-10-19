@@ -103,6 +103,54 @@ export async function verifyEmail(emailInput, codeInput) {
   return { ok: true, message: "Email verified successfully." };
 }
 
+
+export async function resendVerificationEmail(emailInput) {
+  const email = normalizeEmail(emailInput);
+  if (!email || !email.includes("@")) {
+    return { ok: true, message: "If an unverified account exists for that email, a new code will be sent shortly." };
+  }
+
+  const db = requireDatabase();
+  const client = await db.connect();
+  let user = null;
+  let code = null;
+
+  try {
+    await client.query("BEGIN");
+    const found = await client.query(
+      "SELECT id, email, first_name FROM users WHERE LOWER(email)=LOWER($1) AND email_verified=FALSE LIMIT 1 FOR UPDATE",
+      [email]
+    );
+    user = found.rows[0] || null;
+
+    if (user) {
+      await client.query("UPDATE email_codes SET used_at=NOW() WHERE user_id=$1 AND used_at IS NULL", [user.id]);
+      code = String(crypto.randomInt(100000, 1000000));
+      const codeHash = crypto.createHash("sha256").update(code).digest("hex");
+      await client.query(
+        "INSERT INTO email_codes (user_id, email, code_hash, expires_at) VALUES ($1,$2,$3,NOW() + INTERVAL '10 minutes')",
+        [user.id, user.email, codeHash]
+      );
+    }
+    await client.query("COMMIT");
+  } catch (error) {
+    await client.query("ROLLBACK");
+    throw error;
+  } finally {
+    client.release();
+  }
+
+  if (user && code) {
+    try {
+      await sendVerificationEmail({ to: user.email, firstName: user.first_name, code });
+    } catch {
+      // Keep the public response generic so account existence is not disclosed.
+    }
+  }
+
+  return { ok: true, message: "If an unverified account exists for that email, a new code will be sent shortly." };
+}
+
 export async function login(emailInput, password) {
   const email = normalizeEmail(emailInput);
   const db = requireDatabase();
