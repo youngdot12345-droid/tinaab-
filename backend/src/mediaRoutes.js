@@ -34,28 +34,33 @@ function readBearerToken(req) {
 }
 
 export function registerMediaRoutes(app) {
-  app.post("/api/media/upload", (req, res, next) => {
-    upload.single("file")(req, res, async (error) => {
-      try {
-        if (error) {
-          return res.status(400).json({ ok: false, reason: error.code === "LIMIT_FILE_SIZE" ? "Media file is larger than 50 MB." : "Unsupported media upload." });
-        }
-        const user = await getUserFromToken(readBearerToken(req));
-        if (!user) return res.status(401).json({ ok: false, reason: "Authentication required." });
-        if (!req.file) return res.status(400).json({ ok: false, reason: "Choose an image or video file." });
+  // Authenticate before Multer writes anything to disk to prevent anonymous disk-filling uploads.
+  app.post("/api/media/upload", async (req, res, next) => {
+    let user;
+    try {
+      user = await getUserFromToken(readBearerToken(req));
+    } catch (error) {
+      return next(error);
+    }
+    if (!user) return res.status(401).json({ ok: false, reason: "Authentication required." });
 
-        const mediaType = req.file.mimetype.startsWith("video/") ? "video" : "image";
-        res.status(201).json({
-          ok: true,
-          mediaUrl: "/uploads/" + req.file.filename,
-          mediaType,
-          originalName: req.file.originalname,
-          size: req.file.size
+    upload.single("file")(req, res, (error) => {
+      if (error) {
+        return res.status(400).json({
+          ok: false,
+          reason: error.code === "LIMIT_FILE_SIZE" ? "Media file is larger than 50 MB." : "Unsupported media upload."
         });
-      } catch (err) {
-        if (req.file?.path) fs.rmSync(req.file.path, { force: true });
-        next(err);
       }
+      if (!req.file) return res.status(400).json({ ok: false, reason: "Choose a supported image or video file." });
+
+      const mediaType = req.file.mimetype.startsWith("video/") ? "video" : "image";
+      return res.status(201).json({
+        ok: true,
+        mediaUrl: "/uploads/" + req.file.filename,
+        mediaType,
+        originalName: req.file.originalname,
+        size: req.file.size
+      });
     });
   });
 }
