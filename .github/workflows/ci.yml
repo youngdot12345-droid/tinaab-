@@ -1,0 +1,61 @@
+name: Tinaab code checks
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  javascript-syntax:
+    name: JavaScript syntax and frontend asset checks
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Check JavaScript syntax
+        shell: bash
+        run: |
+          set -euo pipefail
+          mapfile -d '' files < <(find . -path './.git' -prune -o -path './node_modules' -prune -o -type f -name '*.js' -print0)
+          if [ "${#files[@]}" -eq 0 ]; then
+            echo "No JavaScript files found."
+            exit 1
+          fi
+          for file in "${files[@]}"; do
+            echo "Checking $file"
+            node --check "$file"
+          done
+
+      - name: Check assets referenced by the main HTML
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f index.html
+          test -f manifest.webmanifest
+          test -f sw.js
+          while IFS= read -r asset; do
+            case "$asset" in
+              http://*|https://*|data:*|blob:*|'') continue ;;
+            esac
+            asset="${asset%%\?*}"
+            asset="${asset%%\#*}"
+            case "$asset" in
+              /*) asset="./${asset#/}" ;;
+              *) asset="./$asset" ;;
+            esac
+            if [ ! -f "$asset" ]; then
+              echo "::error::Referenced asset not found: $asset"
+              exit 1
+            fi
+          done < <(grep -Eo '(src|href)="[^"]+"' index.html | cut -d '"' -f 2 | grep -E '\.(js|css|webmanifest)(\?.*)?$' || true)
