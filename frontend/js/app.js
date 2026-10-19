@@ -37,14 +37,14 @@ async function submitAuth(){
  try{
   if(state.authMode==="login"){const r=await TinaabAPI.login(email,password);state.user=r.user;toast("Logged in");showView("profile");return}
   const r=await TinaabAPI.signup({email,password,firstName:document.querySelector("#firstName").value.trim(),lastName:document.querySelector("#lastName").value.trim(),username:document.querySelector("#username").value.trim()});
-  state.pendingEmail=email;toast(r.message||"Account created");showVerify();
+  if(!r.ok)throw new Error(r.reason||"Could not create your account.");state.pendingEmail=email;toast(r.message||"Account created");showVerify();
  }catch(e){toast(e.message)}
 }
 function showVerify(){
  feed.innerHTML=`<section class="screen"><h1>Verify email</h1><div class="card auth-card"><p>Enter the 6-digit code sent to <strong>${escapeHtml(state.pendingEmail)}</strong>.</p><input id="verifyCode" inputmode="numeric" maxlength="6" placeholder="Verification code"><button class="primary full" id="verifySubmit">Verify email</button><button class="text-btn" id="backAuth">Back</button></div></section>`;
 }
 async function verify(){
- try{await TinaabAPI.verifyEmail(state.pendingEmail,document.querySelector("#verifyCode").value.trim());toast("Email verified. Log in.");state.authMode="login";showAuth()}catch(e){toast(e.message)}
+ try{const r=await TinaabAPI.verifyEmail(state.pendingEmail,document.querySelector("#verifyCode").value.trim());if(!r.ok)throw new Error(r.reason||"Email verification failed.");toast("Email verified. Log in.");state.authMode="login";showAuth()}catch(e){toast(e.message)}
 }
 async function loadWallet(){const r=await TinaabAPI.get("/api/wallet");state.wallet=r.wallet}
 function walletView(){
