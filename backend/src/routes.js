@@ -14,7 +14,6 @@ import { registerSocialInteractionRoutes } from "./socialInteractionRoutes.js";
 import { registerMediaRoutes } from "./mediaRoutes.js";
 
 export function registerRoutes(app) {
-  app.get("/api/health", (_req,res)=>res.json({ok:true,service:"tinaab-api"}));
   app.get("/api/security/reward-policy", (_req,res)=>res.json({currency:"NGN",maxPerVerifiedActivityNaira:500,clientMaySetAmount:false}));
   app.post("/api/rewards/quote",(req,res)=>{const result=calculateReward(req.body?.activityType);if(!result.ok)return res.status(400).json(result);res.json(result);});
   app.post("/api/social/validate-post",(req,res)=>{const result=validateCaption(req.body?.caption);if(!result.ok)return res.status(400).json(result);res.json(result);});
