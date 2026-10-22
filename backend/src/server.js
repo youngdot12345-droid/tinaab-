@@ -1,13 +1,11 @@
 import express from "express";
 import helmet from "helmet";
 import rateLimit from "express-rate-limit";
-import pg from "pg";
+import { pool } from "./db/db.js";
 import { registerRoutes } from "./routes.js";
 
-const { Pool } = pg;
 const app = express();
 const port = Number(process.env.PORT || 3000);
-const pool = process.env.DATABASE_URL ? new Pool({ connectionString: process.env.DATABASE_URL }) : null;
 
 app.disable("x-powered-by");
 app.use(helmet());
@@ -17,8 +15,24 @@ app.use(rateLimit({ windowMs: 60_000, limit: 120, standardHeaders: true, legacyH
 
 const CONTACT_EMAIL = process.env.CONTACT_EMAIL || "youngdots12345@gmail.com";
 
-app.get("/api/health", (_req, res) => {
-  res.json({ ok: true, service: "tinaab-api", databaseConfigured: Boolean(pool), time: new Date().toISOString() });
+app.get("/api/health", async (_req, res) => {
+  let databaseConnected = false;
+  if (pool) {
+    try {
+      await pool.query("SELECT 1");
+      databaseConnected = true;
+    } catch (error) {
+      // Do not expose connection strings or provider error details publicly.
+      console.error("Tinaab database health check failed:", error.message);
+    }
+  }
+  res.json({
+    ok: true,
+    service: "tinaab-api",
+    databaseConfigured: Boolean(pool),
+    databaseConnected,
+    time: new Date().toISOString()
+  });
 });
 
 app.get("/api/config", (_req, res) => {
