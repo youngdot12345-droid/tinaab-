@@ -77,7 +77,12 @@ const TinaabAPI = (() => {
         window.clearTimeout(timeout);
       }
       const data = await parseResponse(res);
-      if (!res.ok) throw new Error(data.reason || data.error || `Upload failed (HTTP ${res.status}).`);
+      if (!res.ok || data?.ok === false) {
+        const message = data.reason || data.error || data.message;
+        if (message) throw new Error(message);
+        if (res.status >= 500) throw new Error("Tinaab server error during upload. Please try again later.");
+        throw new Error(`Upload failed (HTTP ${res.status}).`);
+      }
       return data;
     },
     async me() {
