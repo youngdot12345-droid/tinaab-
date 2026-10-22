@@ -15,17 +15,15 @@ async function queueReward(client, userId, activityType, activityReference) {
 }
 
 export async function listComments(userId, postId, limit = 50) {
+  const parsedPostId = Number(postId);
+  if (!Number.isSafeInteger(parsedPostId) || parsedPostId <= 0) return { ok: false, reason: "Post not found." };
   const db = requireDatabase();
+  const post = await db.query("SELECT id FROM posts WHERE id = $1 AND visibility = 'public'", [parsedPostId]);
+  if (!post.rowCount) return { ok: false, reason: "Post not found." };
   const safeLimit = Math.min(Math.max(Number(limit) || 50, 1), 100);
-  const result = await db.query(
-    `SELECT c.id,c.post_id,c.user_id,c.body,c.created_at,u.username,u.first_name,u.last_name
-       FROM comments c JOIN users u ON u.id=c.user_id
-      WHERE c.post_id=$1 ORDER BY c.created_at ASC LIMIT $2`,
-    [postId, safeLimit]
-  );
+  const result = await db.query(`SELECT c.id,c.post_id,c.user_id,c.body,c.created_at,u.username,u.first_name,u.last_name FROM comments c JOIN users u ON u.id=c.user_id WHERE c.post_id=$1 ORDER BY c.created_at ASC LIMIT $2`, [parsedPostId, safeLimit]);
   return { ok: true, comments: result.rows };
 }
-
 export async function addComment(userId, postId, body) {
   const validation = validateMessage(body);
   if (!validation.ok) return validation;
