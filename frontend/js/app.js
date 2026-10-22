@@ -95,7 +95,7 @@ async function commentPost(postId){
 async function sendComment(postId){
  const body=document.querySelector("#commentBody")?.value.trim();
  if(!body)return;
- try{await TinaabAPI.post("/api/posts/"+postId+"/comments",{body});toast("Comment added");commentPost(postId)}catch(e){toast(e.message)}
+ try{const r=await TinaabAPI.post("/api/posts/"+postId+"/comments",{body});if(!r.ok)throw new Error(r.reason||"Could not add comment.");toast("Comment added");commentPost(postId)}catch(e){toast(e.message||"Could not add comment.")}
 }
 async function repostPost(postId){if(!state.user){toast("Log in to repost.");return}const p=state.posts.find(x=>Number(x.id)===Number(postId));if(!p)return;try{const next=!p.reposted;const r=await TinaabAPI.post("/api/posts/"+postId+"/repost",{reposted:next});if(!r.ok)throw new Error(r.reason||"Could not update repost.");p.reposted=next;p.shares=Number(r.repostsCount??p.shares);renderFeed();toast(next?"Post reposted":"Repost removed");}catch(e){toast(e.message)}}
 async function chatView(){
@@ -153,7 +153,7 @@ let searchTimer;document.addEventListener("input",e=>{if(e.target.id!=="userSear
  if(e.target.closest("#saveBank")){saveBank();return}
  if(e.target.closest("#transferBtn")){transfer();return} if(e.target.closest("#payoutBtn")){payout();return} if(e.target.closest("#setPinBtn")){setPinView();return} if(e.target.closest("#savePin")){savePin();return} if(e.target.closest("#cancelPin")){showView("wallet");return}
  const defaultBank=e.target.closest("[data-default-bank]");if(defaultBank){try{await TinaabAPI.post("/api/bank-accounts/"+defaultBank.dataset.defaultBank+"/default");toast("Default bank updated");await loadWallet();walletView()}catch(err){toast(err.message)}return}
- const like=e.target.closest(".like");if(like){const p=state.posts[Number(like.dataset.i)];if(!state.user){toast("Log in to like posts.");return}try{const isLiked=Boolean(p.liked||state.liked.has(p.id));const r=isLiked?await TinaabAPI.del("/api/posts/"+p.id+"/like"):await TinaabAPI.post("/api/posts/"+p.id+"/like",{});p.liked=!isLiked;if(p.liked)state.liked.add(p.id);else state.liked.delete(p.id);p.likes=Number(r.likesCount??p.likes);renderFeed()}catch(err){toast(err.message)}return}
+ const like=e.target.closest(".like");if(like){const p=state.posts[Number(like.dataset.i)];if(!state.user){toast("Log in to like posts.");return}try{const isLiked=Boolean(p.liked||state.liked.has(p.id));const r=isLiked?await TinaabAPI.del("/api/posts/"+p.id+"/like"):await TinaabAPI.post("/api/posts/"+p.id+"/like",{});if(!r.ok)throw new Error(r.reason||"Could not update like.");p.liked=!isLiked;if(p.liked)state.liked.add(p.id);else state.liked.delete(p.id);p.likes=Number(r.likesCount??p.likes);renderFeed()}catch(err){toast(err.message)}return}
  if(e.target.closest("#createBtn")){createView();return;}
  if(e.target.closest("#searchBtn")){searchView();return;}
  if(e.target.closest("#notifyBtn")){notificationsView();return;}
